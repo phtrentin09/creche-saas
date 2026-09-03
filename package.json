@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "postinstall": "prisma generate",
     "db:seed": "node --experimental-strip-types --env-file=.env prisma/seed.mts",
     "db:limpar": "node --experimental-strip-types --env-file=.env prisma/limpar.mts",
     "abacatepay:testar": "node --experimental-strip-types --env-file=.env scripts/testar-abacatepay.mts"
