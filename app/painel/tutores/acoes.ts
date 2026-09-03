@@ -30,7 +30,13 @@ export async function criarTutorAction(
   if (!dados.nome) return { erro: "Informe o nome do tutor." };
   if (!dados.telefone) return { erro: "Informe o telefone do tutor." };
 
-  const tutor = await criarTutor(tenantId, dados);
+  let tutor;
+  try {
+    tutor = await criarTutor(tenantId, dados);
+  } catch (erro) {
+    return { erro: erro instanceof Error ? erro.message : "Erro ao criar tutor." };
+  }
+
   revalidatePath("/painel/tutores");
   redirect(`/painel/tutores/${tutor.id}`);
 }
@@ -46,17 +52,30 @@ export async function atualizarTutorAction(
   if (!dados.nome) return { erro: "Informe o nome do tutor." };
   if (!dados.telefone) return { erro: "Informe o telefone do tutor." };
 
-  await atualizarTutor(tenantId, tutorId, dados);
+  try {
+    await atualizarTutor(tenantId, tutorId, dados);
+  } catch (erro) {
+    return { erro: erro instanceof Error ? erro.message : "Erro ao salvar tutor." };
+  }
+
   revalidatePath(`/painel/tutores/${tutorId}`);
   revalidatePath("/painel/tutores");
   return {};
 }
 
-export async function excluirTutorAction(formData: FormData) {
+export async function excluirTutorAction(
+  tutorId: string,
+  _estadoAnterior: EstadoTutor,
+  _formData: FormData,
+): Promise<EstadoTutor> {
   const tenantId = await tenantIdDaSessao();
-  const tutorId = String(formData.get("tutorId"));
 
-  await excluirTutor(tenantId, tutorId);
+  try {
+    await excluirTutor(tenantId, tutorId);
+  } catch (erro) {
+    return { erro: erro instanceof Error ? erro.message : "Erro ao excluir tutor." };
+  }
+
   revalidatePath("/painel/tutores");
   redirect("/painel/tutores");
 }

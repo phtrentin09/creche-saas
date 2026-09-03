@@ -59,17 +59,30 @@ export async function atualizarPetAction(
 
   if (!dados.nome) return { erro: "Informe o nome do pet." };
 
-  await atualizarPet(tenantId, petId, dados);
+  try {
+    await atualizarPet(tenantId, petId, dados);
+  } catch (erro) {
+    return { erro: erro instanceof Error ? erro.message : "Erro ao salvar pet." };
+  }
+
   revalidatePath(`/painel/tutores/${tutorId}`);
   redirect(`/painel/tutores/${tutorId}`);
 }
 
-export async function excluirPetAction(formData: FormData) {
+export async function excluirPetAction(
+  tutorId: string,
+  petId: string,
+  _estadoAnterior: EstadoPet,
+  _formData: FormData,
+): Promise<EstadoPet> {
   const tenantId = await tenantIdDaSessao();
-  const petId = String(formData.get("petId"));
-  const tutorId = String(formData.get("tutorId"));
 
-  await excluirPet(tenantId, petId);
+  try {
+    await excluirPet(tenantId, petId);
+  } catch (erro) {
+    return { erro: erro instanceof Error ? erro.message : "Erro ao excluir pet." };
+  }
+
   revalidatePath(`/painel/tutores/${tutorId}`);
   redirect(`/painel/tutores/${tutorId}`);
 }

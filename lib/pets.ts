@@ -50,7 +50,7 @@ export async function atualizarPet(
 }
 
 export async function excluirPet(tenantId: string, petId: string) {
-  // Assinatura/Agendamento/Vacina -> Pet são RESTRICT: se houver histórico
+  // Assinatura/Agendamento/Vacina -> Pet são NoAction: se houver histórico
   // vinculado, o Postgres barra a exclusão (nada é apagado, P2003 aqui).
   try {
     const { count } = await prisma.pet.deleteMany({

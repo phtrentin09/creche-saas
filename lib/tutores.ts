@@ -25,9 +25,16 @@ export async function buscarTutor(tenantId: string, tutorId: string) {
 }
 
 export async function criarTutor(tenantId: string, dados: DadosTutor) {
-  return prisma.tutor.create({
-    data: { ...dados, tenantId },
-  });
+  try {
+    return await prisma.tutor.create({
+      data: { ...dados, tenantId },
+    });
+  } catch (erro) {
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      throw new Error("Já existe um tutor com esse CPF.");
+    }
+    throw erro;
+  }
 }
 
 // updateMany/deleteMany (não update/delete) de propósito: id sozinho não
@@ -48,7 +55,7 @@ export async function atualizarTutor(
 
 export async function excluirTutor(tenantId: string, tutorId: string) {
   // Pet -> Tutor é ON DELETE CASCADE, mas Assinatura/Agendamento/Vacina -> Pet
-  // são RESTRICT: se algum pet desse tutor tiver histórico financeiro ou de
+  // são NoAction: se algum pet desse tutor tiver histórico financeiro ou de
   // agenda, o Postgres barra a exclusão inteira (nada é apagado, P2003 aqui).
   // Decisão pendente: quando a etapa de financeiro existir, trocar essa
   // exclusão por arquivamento (campo `ativo: false` no Tutor) em vez de

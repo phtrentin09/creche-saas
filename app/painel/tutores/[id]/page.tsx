@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FormularioComConfirmacao } from "@/components/formulario-com-confirmacao";
+import { BotaoExcluir } from "@/components/botao-excluir";
 import { tenantIdDaSessao } from "@/lib/sessao";
 import { buscarTutor } from "@/lib/tutores";
 import { excluirTutorAction } from "../acoes";
@@ -72,16 +72,10 @@ export default async function PaginaTutor({
                     >
                       Editar
                     </Button>
-                    <FormularioComConfirmacao
-                      action={excluirPetAction}
-                      mensagem={`Excluir ${pet.nome}?`}
-                    >
-                      <input type="hidden" name="petId" value={pet.id} />
-                      <input type="hidden" name="tutorId" value={tutor.id} />
-                      <Button type="submit" variant="destructive" size="sm">
-                        Excluir
-                      </Button>
-                    </FormularioComConfirmacao>
+                    <BotaoExcluir
+                      acao={excluirPetAction.bind(null, tutor.id, pet.id)}
+                      mensagemConfirmacao={`Excluir ${pet.nome}?`}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -90,15 +84,13 @@ export default async function PaginaTutor({
         </ul>
       </section>
 
-      <FormularioComConfirmacao
-        action={excluirTutorAction}
-        mensagem={`Excluir ${tutor.nome} e todos os pets dele?`}
+      <BotaoExcluir
+        acao={excluirTutorAction.bind(null, tutor.id)}
+        mensagemConfirmacao={`Excluir ${tutor.nome} e todos os pets dele?`}
+        className="w-full"
       >
-        <input type="hidden" name="tutorId" value={tutor.id} />
-        <Button type="submit" variant="destructive" className="w-full">
-          Excluir tutor
-        </Button>
-      </FormularioComConfirmacao>
+        Excluir tutor
+      </BotaoExcluir>
     </div>
   );
 }
