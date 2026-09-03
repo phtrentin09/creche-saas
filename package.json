@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:seed": "node --experimental-strip-types --env-file=.env prisma/seed.mts",
+    "db:limpar": "node --experimental-strip-types --env-file=.env prisma/limpar.mts"
+  },
+  "prisma": {
+    "seed": "node --experimental-strip-types --env-file=.env prisma/seed.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

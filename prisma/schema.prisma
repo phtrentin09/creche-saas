@@ -140,7 +140,7 @@ model Assinatura {
   // gera SQLSTATE 23001, que o Prisma não mapeia para P2003 — vira um erro
   // "Unknown" difícil de tratar. NoAction gera 23503, que o Prisma reconhece.
   pet       Pet        @relation(fields: [petId], references: [id], onDelete: NoAction)
-  plano     Plano      @relation(fields: [planoId], references: [id])
+  plano     Plano      @relation(fields: [planoId], references: [id], onDelete: NoAction)
   cobrancas Cobranca[]
 
   @@index([tenantId])

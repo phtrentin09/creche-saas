@@ -31,3 +31,26 @@ export async function tenantIdDaSessao(): Promise<string> {
   }
   return usuario.tenantId;
 }
+
+export class SemPermissaoError extends Error {
+  constructor() {
+    super("Você não tem permissão para acessar isso.");
+    this.name = "SemPermissaoError";
+  }
+}
+
+/**
+ * Planos e assinaturas são financeiro — atendente não acessa (ver perfis
+ * de usuário no CLAUDE.md). Agenda é dos dois papéis, então essa checagem
+ * não entra em lib/agenda.ts.
+ */
+export async function tenantIdDoDono(): Promise<string> {
+  const usuario = await usuarioDaSessao();
+  if (!usuario.tenantId) {
+    throw new NaoAutenticadoError();
+  }
+  if (usuario.papel !== "dono") {
+    throw new SemPermissaoError();
+  }
+  return usuario.tenantId;
+}

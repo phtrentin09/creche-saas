@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { sair } from "./acoes";
+import { NavPainel } from "./nav";
 
 export default async function LayoutPainel({
   children,
@@ -16,7 +17,7 @@ export default async function LayoutPainel({
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30 pb-16">
       <header className="flex items-center justify-between border-b bg-background px-4 py-3">
         <span className="font-semibold">Creche</span>
         <form action={sair}>
@@ -26,6 +27,7 @@ export default async function LayoutPainel({
         </form>
       </header>
       <main className="mx-auto max-w-md p-4">{children}</main>
+      <NavPainel souDono={sessao.user.papel === "dono"} />
     </div>
   );
 }
