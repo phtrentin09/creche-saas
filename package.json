@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "db:seed": "node --experimental-strip-types --env-file=.env prisma/seed.mts",
-    "db:limpar": "node --experimental-strip-types --env-file=.env prisma/limpar.mts"
+    "db:limpar": "node --experimental-strip-types --env-file=.env prisma/limpar.mts",
+    "abacatepay:testar": "node --experimental-strip-types --env-file=.env scripts/testar-abacatepay.mts"
   },
   "prisma": {
     "seed": "node --experimental-strip-types --env-file=.env prisma/seed.mts"

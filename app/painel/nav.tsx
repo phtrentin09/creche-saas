@@ -8,12 +8,21 @@ export function NavPainel({ souDono }: { souDono: boolean }) {
   const pathname = usePathname();
 
   const itens = [
-    { href: "/painel/agenda", rotulo: "Agenda" },
-    { href: "/painel/tutores", rotulo: "Tutores" },
+    { href: "/painel/agenda", rotulo: "Agenda", prefixos: ["/painel/agenda"] },
+    { href: "/painel/tutores", rotulo: "Tutores", prefixos: ["/painel/tutores"] },
     ...(souDono
       ? [
-          { href: "/painel/planos", rotulo: "Planos" },
-          { href: "/painel/equipe", rotulo: "Equipe" },
+          { href: "/painel/cobrancas", rotulo: "Cobranças", prefixos: ["/painel/cobrancas"] },
+          {
+            href: "/painel/mais",
+            rotulo: "Mais",
+            prefixos: [
+              "/painel/mais",
+              "/painel/planos",
+              "/painel/equipe",
+              "/painel/configuracoes",
+            ],
+          },
         ]
       : []),
   ];
@@ -21,7 +30,7 @@ export function NavPainel({ souDono }: { souDono: boolean }) {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t bg-background">
       {itens.map((item) => {
-        const ativo = pathname.startsWith(item.href);
+        const ativo = item.prefixos.some((prefixo) => pathname.startsWith(prefixo));
         return (
           <Link
             key={item.href}

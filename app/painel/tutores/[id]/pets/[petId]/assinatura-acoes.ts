@@ -8,8 +8,9 @@ import {
   atualizarStatusAssinatura,
   criarAssinatura,
 } from "@/lib/assinaturas";
+import { cobrarPacote } from "@/lib/cobrancas";
 
-export type EstadoAssinatura = { erro?: string };
+export type EstadoAssinatura = { erro?: string; urlPagamento?: string };
 
 function caminhoPet(tutorId: string, petId: string) {
   return `/painel/tutores/${tutorId}/pets/${petId}`;
@@ -80,4 +81,22 @@ export async function ajustarSaldoAction(
 
   revalidatePath(caminhoPet(tutorId, petId));
   return {};
+}
+
+export async function cobrarPacoteAction(
+  tutorId: string,
+  petId: string,
+  assinaturaId: string,
+  _estadoAnterior: EstadoAssinatura,
+  _formData: FormData,
+): Promise<EstadoAssinatura> {
+  const tenantId = await tenantIdDoDono();
+
+  try {
+    const cobranca = await cobrarPacote(tenantId, assinaturaId);
+    revalidatePath(caminhoPet(tutorId, petId));
+    return { urlPagamento: cobranca.urlPagamento ?? undefined };
+  } catch (erro) {
+    return { erro: erro instanceof Error ? erro.message : "Erro ao gerar cobrança." };
+  }
 }

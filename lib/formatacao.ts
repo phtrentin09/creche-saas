@@ -5,6 +5,13 @@ export function formatarMoeda(valorCentavos: number): string {
   });
 }
 
+/** Envio de cobrança é manual (v1): abre o WhatsApp com a mensagem pronta, sem API oficial. */
+export function linkWhatsApp(telefone: string, mensagem: string): string {
+  const numeroLimpo = telefone.replace(/\D/g, "");
+  const comCodigoPais = numeroLimpo.startsWith("55") ? numeroLimpo : `55${numeroLimpo}`;
+  return `https://wa.me/${comCodigoPais}?text=${encodeURIComponent(mensagem)}`;
+}
+
 /**
  * Formata um instante real (dataInicio, checkInEm, pagoEm etc). Fuso fixo
  * em America/Sao_Paulo de propósito — sem isso, o resultado muda conforme
@@ -61,4 +68,16 @@ export function stringISODoDia(diaCalendario: Date): string {
  */
 export function hojeNoBrasil(): Date {
   return dataDeStringISO(formatarDataISO(new Date()));
+}
+
+/**
+ * Cobranca.competencia e Cobranca.vencimento têm semântica diferente
+ * conforme o tipo do plano: em plano mensal são "dia calendário" (meia-
+ * noite UTC, ver dataDeStringISO); em pacote são o instante exato da
+ * compra avulsa. Formatar errado desloca um dia (mesmo bug de
+ * formatarDataDia vs formatarData) — esta função escolhe o formatador
+ * certo pra cada caso.
+ */
+export function formatarCompetencia(data: Date, tipoPlano: "mensal" | "pacote"): string {
+  return tipoPlano === "mensal" ? formatarDataDia(data) : formatarData(data);
 }

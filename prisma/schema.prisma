@@ -49,6 +49,12 @@ model Tenant {
   telefone          String?
   capacidadeDiaria  Int
   chaveApiAbacate   String?
+  // Secret específico deste tenant, usado na query string do endpoint do
+  // webhook (?webhookSecret=...) — é o que garante que o evento recebido
+  // é mesmo dessa creche e não forjado (o HMAC do header usa uma chave
+  // pública fixa da AbacatePay, igual pra todo mundo). Cifrado como a
+  // chave de API.
+  webhookSecret     String?
   criadoEm          DateTime @default(now())
 
   usuarios      Usuario[]
@@ -164,6 +170,10 @@ model Cobranca {
   tenant     Tenant     @relation(fields: [tenantId], references: [id])
   assinatura Assinatura @relation(fields: [assinaturaId], references: [id])
 
+  // Trava a cobrança recorrente mensal duplicada (mesma assinatura, mesma
+  // competência). Cobrança avulsa de pacote usa o instante exato como
+  // competencia, então nunca colide com isso.
+  @@unique([assinaturaId, competencia])
   @@index([tenantId])
   @@index([assinaturaId])
 }

@@ -18,6 +18,7 @@ import { formatarData, formatarMoeda } from "@/lib/formatacao";
 import {
   ajustarSaldoAction,
   alterarStatusAssinaturaAction,
+  cobrarPacoteAction,
   criarAssinaturaAction,
   type EstadoAssinatura,
 } from "./assinatura-acoes";
@@ -88,12 +89,21 @@ export function SecaoAssinatura({
         </p>
 
         {assinatura.plano.tipo === "pacote" && (
-          <FormularioAjusteSaldo
-            tutorId={tutorId}
-            petId={petId}
-            assinaturaId={assinatura.id}
-            saldoAtual={assinatura.saldoDiarias}
-          />
+          <>
+            <FormularioAjusteSaldo
+              tutorId={tutorId}
+              petId={petId}
+              assinaturaId={assinatura.id}
+              saldoAtual={assinatura.saldoDiarias}
+            />
+            {assinatura.status === "ativa" && (
+              <FormularioCobrarPacote
+                tutorId={tutorId}
+                petId={petId}
+                assinaturaId={assinatura.id}
+              />
+            )}
+          </>
         )}
 
         <div className="grid grid-cols-2 gap-2 pt-2">
@@ -216,6 +226,38 @@ function FormularioAjusteSaldo({
         </Button>
       </div>
       {estado.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
+    </form>
+  );
+}
+
+function FormularioCobrarPacote({
+  tutorId,
+  petId,
+  assinaturaId,
+}: {
+  tutorId: string;
+  petId: string;
+  assinaturaId: string;
+}) {
+  const acaoComIds = cobrarPacoteAction.bind(null, tutorId, petId, assinaturaId);
+  const [estado, dispatch, pendente] = useActionState(acaoComIds, estadoInicial);
+
+  return (
+    <form action={dispatch} className="space-y-2 border-t pt-3">
+      <Button type="submit" variant="outline" className="h-10 w-full" disabled={pendente}>
+        {pendente ? "Gerando cobrança..." : "Cobrar pacote"}
+      </Button>
+      {estado.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
+      {estado.urlPagamento && (
+        <a
+          href={estado.urlPagamento}
+          target="_blank"
+          rel="noreferrer"
+          className="block text-sm text-primary underline"
+        >
+          Cobrança gerada — link de pagamento
+        </a>
+      )}
     </form>
   );
 }
