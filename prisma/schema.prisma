@@ -45,8 +45,8 @@ enum StatusAgendamento {
 model Tenant {
   id                String   @id @default(cuid())
   nome              String
-  cnpj              String   @unique
-  telefone          String
+  cnpj              String?  @unique
+  telefone          String?
   capacidadeDiaria  Int
   chaveApiAbacate   String?
   criadoEm          DateTime @default(now())
@@ -102,7 +102,7 @@ model Pet {
   fotoUrl      String?
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id])
-  tutor        Tutor         @relation(fields: [tutorId], references: [id])
+  tutor        Tutor         @relation(fields: [tutorId], references: [id], onDelete: Cascade)
   assinaturas  Assinatura[]
   agendamentos Agendamento[]
   vacinas      Vacina[]
@@ -136,7 +136,10 @@ model Assinatura {
   saldoDiarias  Int              @default(0)
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id])
-  pet       Pet        @relation(fields: [petId], references: [id])
+  // NoAction (não Restrict, que é o default implícito do Prisma): RESTRICT
+  // gera SQLSTATE 23001, que o Prisma não mapeia para P2003 — vira um erro
+  // "Unknown" difícil de tratar. NoAction gera 23503, que o Prisma reconhece.
+  pet       Pet        @relation(fields: [petId], references: [id], onDelete: NoAction)
   plano     Plano      @relation(fields: [planoId], references: [id])
   cobrancas Cobranca[]
 
@@ -175,7 +178,7 @@ model Agendamento {
   checkOutEm  DateTime?
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
-  pet    Pet    @relation(fields: [petId], references: [id])
+  pet    Pet    @relation(fields: [petId], references: [id], onDelete: NoAction)
 
   @@index([tenantId])
   @@index([petId])
@@ -191,7 +194,7 @@ model Vacina {
   venceEm    DateTime
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
-  pet    Pet    @relation(fields: [petId], references: [id])
+  pet    Pet    @relation(fields: [petId], references: [id], onDelete: NoAction)
 
   @@index([tenantId])
   @@index([petId])

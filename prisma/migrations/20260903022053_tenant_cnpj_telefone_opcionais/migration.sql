@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Tenant" ALTER COLUMN "cnpj" DROP NOT NULL,
+ALTER COLUMN "telefone" DROP NOT NULL;

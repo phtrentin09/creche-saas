@@ -1,4 +1,4 @@
-export { auth as proxy } from "@/lib/auth";
+export { auth as proxy } from "@/lib/auth.edge";
 
 export const config = {
   matcher: ["/painel/:path*"],
