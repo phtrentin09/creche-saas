@@ -1,0 +1,205 @@
+// Schema do creche-saas.
+// Regra de ouro: todo model com tenantId precisa ser sempre filtrado por ele
+// nas queries da aplicação (ver lib/tenant.ts).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Papel {
+  dono
+  atendente
+}
+
+enum TipoPlano {
+  mensal
+  pacote
+}
+
+enum StatusAssinatura {
+  ativa
+  pausada
+  cancelada
+}
+
+enum StatusCobranca {
+  pendente
+  paga
+  vencida
+  cancelada
+}
+
+enum StatusAgendamento {
+  agendado
+  presente
+  saiu
+  falta
+}
+
+model Tenant {
+  id                String   @id @default(cuid())
+  nome              String
+  cnpj              String   @unique
+  telefone          String
+  capacidadeDiaria  Int
+  chaveApiAbacate   String?
+  criadoEm          DateTime @default(now())
+
+  usuarios      Usuario[]
+  tutores       Tutor[]
+  pets          Pet[]
+  planos        Plano[]
+  assinaturas   Assinatura[]
+  cobrancas     Cobranca[]
+  agendamentos  Agendamento[]
+  vacinas       Vacina[]
+}
+
+model Usuario {
+  id        String   @id @default(cuid())
+  tenantId  String
+  nome      String
+  email     String   @unique
+  senhaHash String
+  papel     Papel
+  criadoEm  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model Tutor {
+  id       String  @id @default(cuid())
+  tenantId String
+  nome     String
+  telefone String
+  cpf      String?
+  email    String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  pets   Pet[]
+
+  @@unique([tenantId, cpf])
+  @@index([tenantId])
+}
+
+model Pet {
+  id           String  @id @default(cuid())
+  tenantId     String
+  tutorId      String
+  nome         String
+  raca         String?
+  porte        String?
+  castrado     Boolean @default(false)
+  observacoes  String?
+  fotoUrl      String?
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  tutor        Tutor         @relation(fields: [tutorId], references: [id])
+  assinaturas  Assinatura[]
+  agendamentos Agendamento[]
+  vacinas      Vacina[]
+
+  @@index([tenantId])
+  @@index([tutorId])
+}
+
+model Plano {
+  id             String    @id @default(cuid())
+  tenantId       String
+  nome           String
+  tipo           TipoPlano
+  valorCentavos  Int
+  qtdDiarias     Int?
+  diaVencimento  Int?
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  assinaturas Assinatura[]
+
+  @@index([tenantId])
+}
+
+model Assinatura {
+  id            String           @id @default(cuid())
+  tenantId      String
+  petId         String
+  planoId       String
+  status        StatusAssinatura @default(ativa)
+  dataInicio    DateTime         @default(now())
+  saldoDiarias  Int              @default(0)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  pet       Pet        @relation(fields: [petId], references: [id])
+  plano     Plano      @relation(fields: [planoId], references: [id])
+  cobrancas Cobranca[]
+
+  @@index([tenantId])
+  @@index([petId])
+  @@index([planoId])
+}
+
+model Cobranca {
+  id                String         @id @default(cuid())
+  tenantId          String
+  assinaturaId      String
+  competencia       DateTime
+  valorCentavos     Int
+  vencimento        DateTime
+  status            StatusCobranca @default(pendente)
+  abacateBillingId  String?
+  urlPagamento      String?
+  token             String         @unique
+  pagoEm            DateTime?
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  assinatura Assinatura @relation(fields: [assinaturaId], references: [id])
+
+  @@index([tenantId])
+  @@index([assinaturaId])
+}
+
+model Agendamento {
+  id          String            @id @default(cuid())
+  tenantId    String
+  petId       String
+  data        DateTime
+  status      StatusAgendamento @default(agendado)
+  checkInEm   DateTime?
+  checkOutEm  DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  pet    Pet    @relation(fields: [petId], references: [id])
+
+  @@index([tenantId])
+  @@index([petId])
+  @@index([tenantId, data])
+}
+
+model Vacina {
+  id         String   @id @default(cuid())
+  tenantId   String
+  petId      String
+  tipo       String
+  aplicadaEm DateTime
+  venceEm    DateTime
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  pet    Pet    @relation(fields: [petId], references: [id])
+
+  @@index([tenantId])
+  @@index([petId])
+}
+
+model EventoWebhook {
+  id                 String   @id @default(cuid())
+  provedorEventoId   String   @unique
+  recebidoEm         DateTime @default(now())
+  payload            Json
+}
