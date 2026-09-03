@@ -123,18 +123,26 @@ type Webhook = {
   events: string[];
 };
 
+/**
+ * `endpointBase` sem query string (ex: "https://app.com/api/webhooks/
+ * abacatepay") — o endpoint REGISTRADO de verdade sempre tem
+ * "?webhookSecret=..." embutido (é o que criarWebhook manda), então
+ * comparar por igualdade exata nunca bateria com nada. Filtra por
+ * prefixo de propósito.
+ */
 export async function listarWebhooksPorEndpoint(
   chaveApi: string,
-  endpoint: string,
+  endpointBase: string,
 ): Promise<Webhook[]> {
   const resultado = await chamarApi<Webhook[]>(
     chaveApi,
     "GET",
-    `/webhooks/list?search=${encodeURIComponent(endpoint)}`,
+    `/webhooks/list?search=${encodeURIComponent(endpointBase)}`,
   );
-  // Confirma no cliente: o "search" da AbacatePay é livre-texto, pode
-  // trazer parecidos — só interessa o que bate exatamente o endpoint.
-  return resultado.filter((webhook) => webhook.endpoint === endpoint);
+  // "search" da AbacatePay é livre-texto, pode trazer parecidos — filtra
+  // no cliente pelo prefixo real (host + path, ignorando a query string
+  // que muda a cada criação).
+  return resultado.filter((webhook) => webhook.endpoint.startsWith(endpointBase));
 }
 
 export async function criarWebhook(

@@ -34,19 +34,18 @@ function gerarWebhookSecret(): string {
 }
 
 /**
- * Registra (ou reaproveita, ou recria) o webhook desse tenant no
- * AbacatePay.
+ * Registra o webhook desse tenant no AbacatePay.
  *
- * Idempotente por padrão: se já existe webhookSecret salvo e a chave de
- * API não mudou, não faz nada — salvar a mesma chave de novo não cria um
- * segundo webhook. Passe `forcarRecriacao: true` quando a chave de API
- * mudou de verdade (revogada/trocada, ou migrando Dev → Produção): o
- * webhook antigo pode estar apontando pra uma conta/ambiente que não é
- * mais o que gera as cobranças, e o pagamento nunca dá baixa —
- * silenciosamente, sem erro nenhum. Nesse caso lista por endpoint,
- * remove o(s) existente(s) e cria um novo com secret novo (a API não
- * devolve o secret de um webhook já existente, então não dá pra
- * reaproveitar, só recriar).
+ * De propósito, NÃO decide "recriar ou não" a partir de flag local
+ * nenhuma (nem "já tem webhookSecret salvo?", nem "a chave mudou?") —
+ * essa abordagem já causou dois bugs diferentes (um por gatilho: chave
+ * trocada, depois URL_APP trocada — sempre a mesma causa raiz: confiar
+ * num estado local que pode estar desatualizado em relação à AbacatePay
+ * de verdade, seja porque a chave mudou, a URL_APP mudou, ou alguém
+ * mexeu direto no painel deles). Em vez disso, SEMPRE confere contra o
+ * estado real: lista o que já existe pra esse endpoint exato (host +
+ * URL_APP atuais) e recria do zero — se já estiver tudo certo, o custo é
+ * só uma chamada de listagem a mais; se não estiver, corrige na hora.
  *
  * Best-effort: sem URL_APP pública (dev local), não bloqueia o
  * salvamento da chave — só avisa.
@@ -54,17 +53,7 @@ function gerarWebhookSecret(): string {
 export async function garantirWebhookConfigurado(
   tenantId: string,
   chaveApi: string,
-  opcoes: { forcarRecriacao?: boolean } = {},
 ): Promise<{ aviso?: string }> {
-  const tenant = await prisma.tenant.findUniqueOrThrow({
-    where: { id: tenantId },
-    select: { webhookSecret: true },
-  });
-
-  if (tenant.webhookSecret && !opcoes.forcarRecriacao) {
-    return {};
-  }
-
   const urlBase = urlAppPublica();
   if (!urlBase) {
     return {
@@ -73,17 +62,30 @@ export async function garantirWebhookConfigurado(
     };
   }
 
-  const endpoint = `${urlBase}/api/webhooks/abacatepay`;
+  const endpointBase = `${urlBase}/api/webhooks/abacatepay`;
 
-  const existentes = await listarWebhooksPorEndpoint(chaveApi, endpoint);
+  // Apagar os antigos é limpeza, não pode bloquear o passo que importa: o
+  // webhook novo precisa existir mesmo que a limpeza falhe (ex: chave de
+  // teste sem permissão pra deletar — visto na prática com chave abc_dev_).
+  // Um duplicado velho é inofensivo pra confirmação de pagamento (ele só
+  // aponta pra um endpoint antigo/nosso mesmo); travar aqui e nunca criar
+  // o novo é que reproduziria o bug original.
+  const existentes = await listarWebhooksPorEndpoint(chaveApi, endpointBase);
+  let avisoLimpeza: string | undefined;
   for (const webhook of existentes) {
-    await deletarWebhook(chaveApi, webhook.id);
+    try {
+      await deletarWebhook(chaveApi, webhook.id);
+    } catch (erro) {
+      avisoLimpeza =
+        "Não foi possível remover webhook(s) antigo(s) na AbacatePay (permissão da chave?); um novo foi criado normalmente, mas pode haver duplicado(s) pra limpar manualmente no painel deles.";
+      console.error("Falha ao deletar webhook antigo na AbacatePay:", erro);
+    }
   }
 
   const secret = gerarWebhookSecret();
   await criarWebhook(chaveApi, {
     name: "creche-saas",
-    endpoint: `${endpoint}?webhookSecret=${secret}`,
+    endpoint: `${endpointBase}?webhookSecret=${secret}`,
     secret,
   });
 
@@ -92,28 +94,19 @@ export async function garantirWebhookConfigurado(
     data: { webhookSecret: criptografar(secret) },
   });
 
-  return {};
+  return avisoLimpeza ? { aviso: avisoLimpeza } : {};
 }
 
 export async function salvarChaveAbacatePay(
   tenantId: string,
   chavePlana: string,
 ): Promise<{ aviso?: string }> {
-  const tenantAntes = await prisma.tenant.findUniqueOrThrow({
-    where: { id: tenantId },
-    select: { chaveApiAbacate: true },
-  });
-  const chaveAnterior = tenantAntes.chaveApiAbacate
-    ? descriptografar(tenantAntes.chaveApiAbacate)
-    : null;
-  const chaveMudou = chaveAnterior !== chavePlana;
-
   await prisma.tenant.update({
     where: { id: tenantId },
     data: { chaveApiAbacate: criptografar(chavePlana) },
   });
 
-  return garantirWebhookConfigurado(tenantId, chavePlana, { forcarRecriacao: chaveMudou });
+  return garantirWebhookConfigurado(tenantId, chavePlana);
 }
 
 /** Só pra uso interno do servidor (chamar a API do AbacatePay) — nunca serializar isso de volta pro client. */
