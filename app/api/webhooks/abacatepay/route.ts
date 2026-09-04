@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
   try {
     // webhookId nunca é null aqui: verificarWebhook já teria retornado
     // { ok: false } (e a rota já teria voltado 401) se fosse.
-    const resultado = await processarEventoWebhook(webhookId as string, payload);
+    const resultado = await processarEventoWebhook(webhookId as string, payload, tenantId);
     return NextResponse.json({ ok: true, resultado });
   } catch (erro) {
     console.error("Erro ao processar webhook AbacatePay:", erro);

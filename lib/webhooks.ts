@@ -1,6 +1,7 @@
 import { confirmarPagamento } from "@/lib/cobrancas";
 import type { Prisma } from "@/lib/generated/prisma";
 import { prisma } from "@/lib/prisma";
+import { comTenant } from "@/lib/tenant";
 
 // Só checkout.completed sinaliza pagamento confirmado no nosso fluxo —
 // usamos /checkouts/create, não /transparents/* nem /subscriptions/*.
@@ -34,6 +35,12 @@ function ehObjeto(valor: unknown): valor is Record<string, unknown> {
  * (incluindo externalId) ficam aninhados em "data.checkout" (não direto
  * em "data").
  *
+ * `tenantId` já foi autenticado pela rota (webhookSecret da query string
+ * bateu com esse tenant) — a busca da cobrança abaixo TEM que filtrar por
+ * ele. Sem isso, um webhook legítimo de um tenant conseguiria confirmar
+ * pagamento da cobrança de OUTRO tenant só sabendo o id dela (achado na
+ * revisão da etapa 6 — corrigido antes de virar exploração de verdade).
+ *
  * Idempotência de verdade: o INSERT em EventoWebhook usa a constraint
  * única em provedorEventoId DENTRO da mesma transação que credita o
  * saldo. Se dois requests concorrentes chegarem com o mesmo evento, só
@@ -44,6 +51,7 @@ function ehObjeto(valor: unknown): valor is Record<string, unknown> {
 export async function processarEventoWebhook(
   webhookId: string,
   payload: unknown,
+  tenantId: string,
 ): Promise<ResultadoProcessamento> {
   if (!ehObjeto(payload)) {
     throw new Error("Payload do webhook não é um objeto JSON.");
@@ -83,7 +91,9 @@ export async function processarEventoWebhook(
         data: { provedorEventoId: eventoId, payload: payloadJson },
       });
 
-      const cobranca = await tx.cobranca.findUnique({ where: { id: externalId } });
+      const cobranca = await tx.cobranca.findFirst({
+        where: comTenant(tenantId, { id: externalId }),
+      });
       if (!cobranca) {
         throw new Error(`Cobranca ${externalId} não encontrada.`);
       }

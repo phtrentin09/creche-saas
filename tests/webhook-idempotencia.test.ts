@@ -86,7 +86,7 @@ describe("idempotência do webhook — não credita diárias em dobro", () => {
   }
 
   it("primeira vez: marca paga e credita as diárias do pacote", async () => {
-    const resultado = await processarEventoWebhook(eventoId, payloadEvento());
+    const resultado = await processarEventoWebhook(eventoId, payloadEvento(), tenant.id);
     expect(resultado).toEqual({ status: "processado", cobrancaId: cobranca.id });
 
     const cobrancaAtualizada = await prisma.cobranca.findUniqueOrThrow({
@@ -102,7 +102,7 @@ describe("idempotência do webhook — não credita diárias em dobro", () => {
   });
 
   it("segunda vez, MESMO evento: não credita de novo", async () => {
-    const resultado = await processarEventoWebhook(eventoId, payloadEvento());
+    const resultado = await processarEventoWebhook(eventoId, payloadEvento(), tenant.id);
     expect(resultado).toEqual({ status: "duplicado" });
 
     const assinaturaAtualizada = await prisma.assinatura.findUniqueOrThrow({
@@ -115,5 +115,28 @@ describe("idempotência do webhook — não credita diárias em dobro", () => {
       where: { provedorEventoId: eventoId },
     });
     expect(eventos).toHaveLength(1);
+  });
+
+  it("webhook autenticado como OUTRO tenant não confirma essa cobrança", async () => {
+    const outroTenant = await prisma.tenant.create({
+      data: { nome: `Tenant Webhook Outro ${sufixo}`, capacidadeDiaria: 10 },
+    });
+
+    try {
+      const eventoIdOutroTenant = `log_teste_outro_tenant_${sufixo}`;
+      await expect(
+        processarEventoWebhook(eventoIdOutroTenant, payloadEvento(), outroTenant.id),
+      ).rejects.toThrow(`Cobranca ${cobranca.id} não encontrada.`);
+
+      // Nada mudou na cobrança/assinatura do tenant dono de verdade.
+      const cobrancaAtualizada = await prisma.cobranca.findUniqueOrThrow({
+        where: { id: cobranca.id },
+      });
+      expect(cobrancaAtualizada.status).toBe("paga");
+
+      await prisma.eventoWebhook.deleteMany({ where: { provedorEventoId: eventoIdOutroTenant } });
+    } finally {
+      await prisma.tenant.deleteMany({ where: { id: outroTenant.id } });
+    }
   });
 });
