@@ -25,6 +25,12 @@ function ehObjeto(valor: unknown): valor is Record<string, unknown> {
  * tratado como `unknown` de propósito: é entrada externa, não confiamos
  * na forma exata sem checar.
  *
+ * `webhookId` vem do header "webhook-id" (padrão Standard Webhooks), não
+ * de um campo dentro do corpo — é a identidade confiável pra idempotência
+ * porque é garantida pelo protocolo (mesmo id reenviado em retry do
+ * MESMO evento), enquanto o formato exato do corpo é AbacatePay-specific
+ * e nunca totalmente confirmado.
+ *
  * Idempotência de verdade: o INSERT em EventoWebhook usa a constraint
  * única em provedorEventoId DENTRO da mesma transação que credita o
  * saldo. Se dois requests concorrentes chegarem com o mesmo evento, só
@@ -32,15 +38,18 @@ function ehObjeto(valor: unknown): valor is Record<string, unknown> {
  * duplicar nada. Checar "já existe?" antes, fora da transação, teria uma
  * corrida (os dois passariam pela checagem antes de um gravar).
  */
-export async function processarEventoWebhook(payload: unknown): Promise<ResultadoProcessamento> {
+export async function processarEventoWebhook(
+  webhookId: string,
+  payload: unknown,
+): Promise<ResultadoProcessamento> {
   if (!ehObjeto(payload)) {
     throw new Error("Payload do webhook não é um objeto JSON.");
   }
 
-  const eventoId = payload.id;
+  const eventoId = webhookId;
   const evento = payload.event;
-  if (typeof eventoId !== "string" || typeof evento !== "string") {
-    throw new Error("Payload do webhook sem id ou event.");
+  if (typeof evento !== "string") {
+    throw new Error("Payload do webhook sem event.");
   }
 
   const payloadJson = payload as Prisma.InputJsonValue;

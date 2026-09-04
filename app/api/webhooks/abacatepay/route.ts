@@ -27,16 +27,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "webhookSecret ausente." }, { status: 401 });
   }
 
-  const assinaturaRecebida = request.headers.get("X-Webhook-Signature");
-  if (!assinaturaWebhookValida(corpoBruto, assinaturaRecebida)) {
-    // Diagnóstico temporário: primeiro webhook real (via Vercel) caiu
-    // aqui ou na checagem seguinte, nunca testado contra a AbacatePay de
-    // verdade antes. Só nomes de header, nunca valores (secret/assinatura
-    // não vão pro log).
+  // Headers do padrão Standard Webhooks (svix) — a doc da AbacatePay
+  // ainda descreve "X-Webhook-Signature" simples, mas o primeiro webhook
+  // real recebido veio com esses três (ver nota em assinaturaWebhookValida).
+  const webhookId = request.headers.get("webhook-id");
+  const webhookTimestamp = request.headers.get("webhook-timestamp");
+  const assinaturaRecebida = request.headers.get("webhook-signature");
+
+  if (!assinaturaWebhookValida(webhookId, webhookTimestamp, corpoBruto, assinaturaRecebida)) {
+    // Diagnóstico temporário: primeiro ciclo real contra a AbacatePay,
+    // formato de headers e payload ainda sendo confirmado na prática.
+    // Nada sensível aqui — assinatura recebida não é a chave, e id/
+    // timestamp não são segredo.
     console.error(
       "Webhook AbacatePay: assinatura inválida.",
-      assinaturaRecebida ? "Header X-Webhook-Signature presente, mas não bateu com o HMAC calculado." : "Header X-Webhook-Signature ausente na requisição.",
-      "Headers recebidos:", [...request.headers.keys()],
+      "webhook-id:", webhookId,
+      "webhook-timestamp:", webhookTimestamp,
+      "webhook-signature recebida:", assinaturaRecebida,
+      "Headers recebidos:", [...request.headers.keys()].join(", "),
     );
     return NextResponse.json({ error: "Assinatura inválida." }, { status: 401 });
   }
@@ -55,10 +63,18 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const resultado = await processarEventoWebhook(payload);
+    // webhookId nunca é null aqui: assinaturaWebhookValida já teria
+    // retornado false (e a função já teria voltado 401) se fosse.
+    const resultado = await processarEventoWebhook(webhookId as string, payload);
     return NextResponse.json({ ok: true, resultado });
   } catch (erro) {
-    console.error("Erro ao processar webhook AbacatePay:", erro);
+    console.error(
+      "Erro ao processar webhook AbacatePay:",
+      erro,
+      // Diagnóstico temporário: formato exato do corpo (id/event/data)
+      // nunca confirmado contra um payload real da AbacatePay.
+      "Corpo recebido:", corpoBruto,
+    );
     // 500 de propósito (não 200): se falhou de verdade, é melhor a
     // AbacatePay reenviar (retry deles) do que a gente perder o evento.
     return NextResponse.json({ error: "Erro ao processar." }, { status: 500 });

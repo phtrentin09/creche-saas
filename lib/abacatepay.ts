@@ -184,19 +184,40 @@ export function webhookSecretValido(esperado: string, recebido: string | null): 
 }
 
 // Chave pública fixa e documentada pela AbacatePay pra validar a
-// assinatura HMAC do header X-Webhook-Signature. É igual pra toda conta
-// (não é segredo por tenant) — serve pra confirmar que o corpo não foi
-// corrompido/alterado em trânsito. A defesa real contra forjamento é o
-// webhookSecret (ver webhookSecretValido), que é específico por tenant.
+// assinatura HMAC do webhook. É igual pra toda conta (não é segredo por
+// tenant) — serve pra confirmar que o corpo não foi corrompido/alterado
+// em trânsito. A defesa real contra forjamento é o webhookSecret (ver
+// webhookSecretValido), que é específico por tenant.
 const CHAVE_PUBLICA_ABACATEPAY =
   "t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdiDkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9";
 
-export function assinaturaWebhookValida(corpoBruto: string, assinaturaRecebida: string | null): boolean {
-  if (!assinaturaRecebida) {
+/**
+ * A doc da AbacatePay descreve um header "X-Webhook-Signature" simples,
+ * mas o primeiro webhook real recebido (testado contra produção deles,
+ * não contra o que a doc diz) veio com headers "webhook-id" e
+ * "webhook-signature" — assinatura do padrão Standard Webhooks (svix),
+ * que a doc está desatualizada e não documenta. Formato: o header
+ * webhook-signature traz uma ou mais assinaturas espaço-separadas, cada
+ * uma "v1,<base64>"; o conteúdo assinado é "{id}.{timestamp}.{corpo}",
+ * não o corpo sozinho.
+ */
+export function assinaturaWebhookValida(
+  webhookId: string | null,
+  timestamp: string | null,
+  corpoBruto: string,
+  assinaturaRecebida: string | null,
+): boolean {
+  if (!webhookId || !timestamp || !assinaturaRecebida) {
     return false;
   }
+  const conteudoAssinado = `${webhookId}.${timestamp}.${corpoBruto}`;
   const assinaturaEsperada = createHmac("sha256", CHAVE_PUBLICA_ABACATEPAY)
-    .update(Buffer.from(corpoBruto, "utf8"))
+    .update(Buffer.from(conteudoAssinado, "utf8"))
     .digest("base64");
-  return compararTimingSafe(assinaturaEsperada, assinaturaRecebida);
+
+  return assinaturaRecebida
+    .split(" ")
+    .map((parte) => parte.split(",")[1])
+    .filter((assinatura): assinatura is string => Boolean(assinatura))
+    .some((assinatura) => compararTimingSafe(assinaturaEsperada, assinatura));
 }

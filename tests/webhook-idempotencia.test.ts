@@ -78,7 +78,6 @@ describe("idempotência do webhook — não credita diárias em dobro", () => {
 
   function payloadEvento() {
     return {
-      id: eventoId,
       event: "checkout.completed",
       apiVersion: 2,
       devMode: true,
@@ -87,7 +86,7 @@ describe("idempotência do webhook — não credita diárias em dobro", () => {
   }
 
   it("primeira vez: marca paga e credita as diárias do pacote", async () => {
-    const resultado = await processarEventoWebhook(payloadEvento());
+    const resultado = await processarEventoWebhook(eventoId, payloadEvento());
     expect(resultado).toEqual({ status: "processado", cobrancaId: cobranca.id });
 
     const cobrancaAtualizada = await prisma.cobranca.findUniqueOrThrow({
@@ -103,7 +102,7 @@ describe("idempotência do webhook — não credita diárias em dobro", () => {
   });
 
   it("segunda vez, MESMO evento: não credita de novo", async () => {
-    const resultado = await processarEventoWebhook(payloadEvento());
+    const resultado = await processarEventoWebhook(eventoId, payloadEvento());
     expect(resultado).toEqual({ status: "duplicado" });
 
     const assinaturaAtualizada = await prisma.assinatura.findUniqueOrThrow({
