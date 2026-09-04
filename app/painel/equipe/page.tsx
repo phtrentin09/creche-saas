@@ -1,14 +1,7 @@
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import type { Papel } from "@/lib/generated/prisma";
 import { listarEquipe } from "@/lib/equipe";
 import { tenantIdDoDono } from "@/lib/sessao";
 import { FormularioNovoAtendente } from "./formulario";
-
-const rotuloPapel: Record<Papel, string> = {
-  dono: "Dono",
-  atendente: "Atendente",
-};
+import { LinhaUsuario } from "./linha-usuario";
 
 export default async function PaginaEquipe() {
   const tenantId = await tenantIdDoDono();
@@ -21,17 +14,7 @@ export default async function PaginaEquipe() {
       <ul className="space-y-3">
         {equipe.map((usuario) => (
           <li key={usuario.id}>
-            <Card>
-              <CardContent className="flex items-center justify-between py-4">
-                <div>
-                  <p className="font-medium">{usuario.nome}</p>
-                  <p className="text-sm text-muted-foreground">{usuario.email}</p>
-                </div>
-                <Badge variant={usuario.papel === "dono" ? "default" : "secondary"}>
-                  {rotuloPapel[usuario.papel]}
-                </Badge>
-              </CardContent>
-            </Card>
+            <LinhaUsuario usuario={usuario} />
           </li>
         ))}
       </ul>
@@ -44,6 +27,12 @@ export default async function PaginaEquipe() {
         </p>
         <FormularioNovoAtendente />
       </section>
+
+      {/*
+        Esqueceu a própria senha (dono)? Ainda não tem fluxo na UI —
+        só via script direto no banco (ver PENDENCIAS.md). Faz sentido
+        só quando existir serviço de e-mail pra recuperação de verdade.
+      */}
     </div>
   );
 }
