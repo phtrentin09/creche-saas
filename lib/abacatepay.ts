@@ -238,3 +238,51 @@ export function verificarWebhook(
     throw erro;
   }
 }
+
+/**
+ * Diagnóstico temporário (não é código de produção definitivo — remover
+ * depois de confirmar o formato certo). Calcula a assinatura esperada
+ * das DUAS formas possíveis de tratar o secret (decodificado de base64,
+ * que é o que verificarWebhook usa hoje; e cru, bytes da string) usando
+ * a própria lib (Webhook.sign), pra comparar contra o que a AbacatePay
+ * mandou sem expor o secret em si — só comprimentos e assinaturas
+ * calculadas, que não permitem recuperar o secret.
+ */
+export function diagnosticarAssinaturaWebhook(
+  corpoBruto: string,
+  webhookId: string,
+  timestamp: string,
+  secretoTenant: string,
+): Record<string, unknown> {
+  const conteudoAssinado = `${webhookId}.${timestamp}.${corpoBruto}`;
+  const timestampDate = new Date(Number(timestamp) * 1000);
+
+  const resultado: Record<string, unknown> = {
+    conteudoAssinado: JSON.stringify(conteudoAssinado),
+    tamanhoConteudoAssinado: conteudoAssinado.length,
+    tamanhoCorpo: corpoBruto.length,
+    tamanhoSecretCru: secretoTenant.length,
+  };
+
+  try {
+    resultado.assinatura_secretDecodificadoBase64 = new Webhook(secretoTenant).sign(
+      webhookId,
+      timestampDate,
+      corpoBruto,
+    );
+  } catch (erro) {
+    resultado.erro_secretDecodificadoBase64 = erro instanceof Error ? erro.message : String(erro);
+  }
+
+  try {
+    resultado.assinatura_secretCru = new Webhook(secretoTenant, { format: "raw" }).sign(
+      webhookId,
+      timestampDate,
+      corpoBruto,
+    );
+  } catch (erro) {
+    resultado.erro_secretCru = erro instanceof Error ? erro.message : String(erro);
+  }
+
+  return resultado;
+}

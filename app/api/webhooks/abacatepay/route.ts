@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { verificarWebhook } from "@/lib/abacatepay";
+import { diagnosticarAssinaturaWebhook, verificarWebhook } from "@/lib/abacatepay";
 import { tenantPorWebhookSecret } from "@/lib/configuracoes";
 import { processarEventoWebhook } from "@/lib/webhooks";
 
@@ -52,7 +52,21 @@ export async function POST(request: NextRequest) {
       webhookSecretRecebido,
     );
     if (!resultado.ok) {
-      console.error("Webhook AbacatePay: assinatura inválida —", resultado.motivo);
+      // Diagnóstico temporário — remover depois de confirmar o formato
+      // certo. Nunca loga o secret em si, só assinaturas calculadas e
+      // comprimentos (não dá pra recuperar o secret a partir disso).
+      const diagnostico = diagnosticarAssinaturaWebhook(
+        corpoBruto,
+        webhookId ?? "",
+        webhookTimestamp ?? "",
+        webhookSecretRecebido,
+      );
+      console.error(
+        "Webhook AbacatePay: assinatura inválida —",
+        resultado.motivo,
+        "\nDiagnóstico:",
+        JSON.stringify({ ...diagnostico, assinaturaRecebida }, null, 2),
+      );
       return NextResponse.json({ error: "Assinatura inválida." }, { status: 401 });
     }
     payload = resultado.payload;
