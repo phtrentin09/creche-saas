@@ -4,7 +4,7 @@ import { listarAgendamentosDoDia } from "@/lib/agenda";
 import { temMensalidadeEmAtraso } from "@/lib/cobrancas";
 import {
   dataDeStringISO,
-  formatarDataDia,
+  formatarDataDiaComSemana,
   hojeNoBrasil,
   stringISODoDia,
 } from "@/lib/formatacao";
@@ -64,7 +64,7 @@ export default async function PaginaAgenda({
         >
           ← Anterior
         </Button>
-        <span className="text-sm font-medium">{formatarDataDia(data)}</span>
+        <span className="text-sm font-medium">{formatarDataDiaComSemana(data)}</span>
         <Button
           render={<Link href={`/painel/agenda?data=${stringISODoDia(diaSeguinte)}`} />}
           nativeButton={false}
@@ -74,14 +74,6 @@ export default async function PaginaAgenda({
           Próximo →
         </Button>
       </div>
-
-      <Button
-        render={<Link href={`/painel/agenda/novo?data=${dataISO}`} />}
-        nativeButton={false}
-        className="h-12 w-full text-base"
-      >
-        + Agendar
-      </Button>
 
       {agendamentos.length === 0 && (
         <p className="text-sm text-muted-foreground">Nenhum agendamento para esse dia.</p>
@@ -99,6 +91,16 @@ export default async function PaginaAgenda({
           </li>
         ))}
       </ul>
+
+      <Button
+        render={<Link href={`/painel/agenda/novo?data=${dataISO}`} />}
+        nativeButton={false}
+        variant="outline"
+        size="sm"
+        className="w-full"
+      >
+        + Agendar
+      </Button>
     </div>
   );
 }
