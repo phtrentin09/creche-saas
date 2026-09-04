@@ -31,10 +31,10 @@ export function FormularioNovoPet({ tutorId }: { tutorId: string }) {
         <Input id="porte" name="porte" placeholder="pequeno, médio, grande" className="h-12 text-base" />
       </div>
 
-      <div className="flex items-center gap-2">
+      <Label htmlFor="castrado" className="h-11 w-fit">
         <Checkbox id="castrado" name="castrado" />
-        <Label htmlFor="castrado">Castrado</Label>
-      </div>
+        Castrado
+      </Label>
 
       <div className="space-y-2">
         <Label htmlFor="observacoes">Observações (opcional)</Label>

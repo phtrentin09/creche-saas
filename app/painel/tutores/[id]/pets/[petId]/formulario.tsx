@@ -62,10 +62,10 @@ export function FormularioEditarPet({
         />
       </div>
 
-      <div className="flex items-center gap-2">
+      <Label htmlFor="castrado" className="h-11 w-fit">
         <Checkbox id="castrado" name="castrado" defaultChecked={valoresIniciais.castrado} />
-        <Label htmlFor="castrado">Castrado</Label>
-      </div>
+        Castrado
+      </Label>
 
       <div className="space-y-2">
         <Label htmlFor="observacoes">Observações (opcional)</Label>

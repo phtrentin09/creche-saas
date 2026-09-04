@@ -219,9 +219,9 @@ function FormularioAjusteSaldo({
           min={0}
           step={1}
           defaultValue={saldoAtual}
-          className="h-10 text-base"
+          className="h-11 text-base"
         />
-        <Button type="submit" variant="outline" disabled={pendente}>
+        <Button type="submit" variant="outline" className="h-11" disabled={pendente}>
           {pendente ? "..." : "Salvar"}
         </Button>
       </div>
@@ -244,7 +244,7 @@ function FormularioCobrarPacote({
 
   return (
     <form action={dispatch} className="space-y-2 border-t pt-3">
-      <Button type="submit" variant="outline" className="h-10 w-full" disabled={pendente}>
+      <Button type="submit" variant="outline" className="h-11 w-full" disabled={pendente}>
         {pendente ? "Gerando cobrança..." : "Cobrar pacote"}
       </Button>
       {estado.erro && <p className="text-sm text-destructive">{estado.erro}</p>}

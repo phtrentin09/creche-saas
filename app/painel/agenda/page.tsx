@@ -10,6 +10,7 @@ import {
 } from "@/lib/formatacao";
 import { tenantIdDaSessao } from "@/lib/sessao";
 import { buscarTenantAtual } from "@/lib/tenant";
+import { situacaoVacinasDoPet } from "@/lib/vacinas";
 import { LinhaAgendamento } from "./linha-agendamento";
 
 export default async function PaginaAgenda({
@@ -36,10 +37,13 @@ export default async function PaginaAgenda({
   diaSeguinte.setUTCDate(diaSeguinte.getUTCDate() + 1);
 
   const agendamentosComAlerta = await Promise.all(
-    agendamentos.map(async (agendamento) => ({
-      agendamento,
-      emAtraso: await temMensalidadeEmAtraso(tenantId, agendamento.petId),
-    })),
+    agendamentos.map(async (agendamento) => {
+      const [emAtraso, vacina] = await Promise.all([
+        temMensalidadeEmAtraso(tenantId, agendamento.petId),
+        situacaoVacinasDoPet(tenantId, agendamento.petId),
+      ]);
+      return { agendamento, emAtraso, vacina };
+    }),
   );
 
   return (
@@ -84,9 +88,14 @@ export default async function PaginaAgenda({
       )}
 
       <ul className="space-y-3">
-        {agendamentosComAlerta.map(({ agendamento, emAtraso }) => (
+        {agendamentosComAlerta.map(({ agendamento, emAtraso, vacina }) => (
           <li key={agendamento.id}>
-            <LinhaAgendamento agendamento={agendamento} emAtraso={emAtraso} />
+            <LinhaAgendamento
+              agendamento={agendamento}
+              emAtraso={emAtraso}
+              vacinaVencida={vacina.vencida}
+              vacinaProxima={vacina.proximaDoVencimento}
+            />
           </li>
         ))}
       </ul>

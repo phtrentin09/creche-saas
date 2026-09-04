@@ -42,9 +42,13 @@ type AgendamentoComPet = {
 export function LinhaAgendamento({
   agendamento,
   emAtraso,
+  vacinaVencida,
+  vacinaProxima,
 }: {
   agendamento: AgendamentoComPet;
   emAtraso: boolean;
+  vacinaVencida: boolean;
+  vacinaProxima: boolean;
 }) {
   return (
     <Card>
@@ -59,7 +63,13 @@ export function LinhaAgendamento({
           </Badge>
         </div>
 
-        {emAtraso && <Badge variant="destructive">Mensalidade em atraso</Badge>}
+        {(emAtraso || vacinaVencida || vacinaProxima) && (
+          <div className="flex flex-wrap gap-1.5">
+            {emAtraso && <Badge variant="destructive">Mensalidade em atraso</Badge>}
+            {vacinaVencida && <Badge variant="destructive">Vacina vencida</Badge>}
+            {vacinaProxima && <Badge variant="warning">Vacina vence em breve</Badge>}
+          </div>
+        )}
 
         {agendamento.status === "saiu" && agendamento.checkInEm && agendamento.checkOutEm && (
           <p className="text-sm text-muted-foreground">

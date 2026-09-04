@@ -12,7 +12,7 @@ export default function ErroPainel({
   return (
     <div className="space-y-4 py-8 text-center">
       <p className="text-sm text-destructive">{error.message}</p>
-      <Button onClick={reset} variant="outline">
+      <Button onClick={reset} variant="outline" className="h-11">
         Tentar de novo
       </Button>
     </div>
