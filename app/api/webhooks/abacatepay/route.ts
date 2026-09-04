@@ -29,11 +29,21 @@ export async function POST(request: NextRequest) {
 
   const assinaturaRecebida = request.headers.get("X-Webhook-Signature");
   if (!assinaturaWebhookValida(corpoBruto, assinaturaRecebida)) {
+    // Diagnóstico temporário: primeiro webhook real (via Vercel) caiu
+    // aqui ou na checagem seguinte, nunca testado contra a AbacatePay de
+    // verdade antes. Só nomes de header, nunca valores (secret/assinatura
+    // não vão pro log).
+    console.error(
+      "Webhook AbacatePay: assinatura inválida.",
+      assinaturaRecebida ? "Header X-Webhook-Signature presente, mas não bateu com o HMAC calculado." : "Header X-Webhook-Signature ausente na requisição.",
+      "Headers recebidos:", [...request.headers.keys()],
+    );
     return NextResponse.json({ error: "Assinatura inválida." }, { status: 401 });
   }
 
   const tenantId = await tenantPorWebhookSecret(webhookSecretRecebido);
   if (!tenantId) {
+    console.error("Webhook AbacatePay: webhookSecret da query string não bateu com nenhum tenant cadastrado.");
     return NextResponse.json({ error: "webhookSecret inválido." }, { status: 401 });
   }
 
