@@ -184,34 +184,33 @@ export function webhookSecretValido(esperado: string, recebido: string | null): 
   return compararTimingSafe(esperado, recebido);
 }
 
-// Chave pública fixa e documentada pela AbacatePay pra validar a
-// assinatura do webhook. É igual pra toda conta (não é segredo por
-// tenant) — serve pra confirmar que o corpo não foi corrompido/alterado
-// em trânsito. A defesa real contra forjamento é o webhookSecret (ver
-// webhookSecretValido), que é específico por tenant.
-//
-// É base64 válido (decodifica pra 192 bytes) mas sem o prefixo
-// "whsec_" que o padrão Standard Webhooks costuma usar — a lib oficial
-// aceita os dois formatos (com ou sem prefixo) e decodifica igual.
-const CHAVE_PUBLICA_ABACATEPAY =
-  "t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdiDkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9";
-
 /**
- * A doc da AbacatePay descreve um header "X-Webhook-Signature" simples,
- * mas o primeiro webhook real recebido (testado contra produção deles,
- * não contra o que a doc diz) veio no formato Standard Webhooks (svix):
- * headers webhook-id/webhook-timestamp/webhook-signature, conteúdo
- * assinado "{id}.{timestamp}.{corpo}", chave em base64 — doc deles está
- * desatualizada e não menciona nada disso.
+ * A doc da AbacatePay descreve um header "X-Webhook-Signature" simples
+ * assinado com uma "chave pública" fixa e documentada — mas o primeiro
+ * webhook real veio no formato Standard Webhooks (svix), com headers
+ * webhook-id/webhook-timestamp/webhook-signature, e essa chave fixa NÃO
+ * bate ("No matching signature found"). Faz sentido: Standard Webhooks
+ * não tem noção de "chave pública global" — cada endpoint tem o próprio
+ * secret, e é exatamente esse secret que a gente já manda no campo
+ * `secret` de criarWebhook. É esse mesmo valor (webhookSecret do tenant,
+ * o mesmo que vai na query string do endpoint) que assina de verdade —
+ * a doc da AbacatePay está desatualizada e não documenta esse formato.
+ *
+ * Consequência pro modelo de segurança: como o secret que assina é o
+ * MESMO que identifica o tenant na query string, a assinatura sozinha
+ * não prova nada que a comparação timing-safe do webhookSecret (ver
+ * webhookSecretValido) já não provasse — quem forja a query string forja
+ * a assinatura também. O valor real dela aqui é garantir integridade
+ * contra corrupção em trânsito e bater com o formato que a AbacatePay
+ * realmente envia, não uma segunda camada de autenticação independente.
  *
  * Usa a lib oficial (`standardwebhooks`) em vez de reimplementar: ela já
  * decodifica a chave em base64 corretamente (uma implementação manual
- * ingênua usaria os bytes da string crua como chave — errado), valida
- * timestamp contra replay (tolerância de 5min embutida), aceita múltiplas
- * assinaturas espaço-separadas (rotação de chave) e compara timing-safe.
+ * ingênua usaria os bytes da string crua como chave — errado, é assim
+ * que a primeira tentativa falhou), valida timestamp contra replay
+ * (tolerância de 5min embutida), aceita múltiplas assinaturas espaço-
+ * separadas (rotação de chave) e compara timing-safe.
  */
-const webhookAbacatePay = new Webhook(CHAVE_PUBLICA_ABACATEPAY);
-
 export type ResultadoVerificacaoWebhook =
   | { ok: true; payload: unknown }
   | { ok: false; motivo: string };
@@ -219,9 +218,11 @@ export type ResultadoVerificacaoWebhook =
 export function verificarWebhook(
   corpoBruto: string,
   headers: { webhookId: string | null; timestamp: string | null; assinatura: string | null },
+  secretoTenant: string,
 ): ResultadoVerificacaoWebhook {
+  const webhook = new Webhook(secretoTenant);
   try {
-    const payload = webhookAbacatePay.verify(corpoBruto, {
+    const payload = webhook.verify(corpoBruto, {
       "webhook-id": headers.webhookId ?? "",
       "webhook-timestamp": headers.timestamp ?? "",
       "webhook-signature": headers.assinatura ?? "",

@@ -4,14 +4,16 @@ import { tenantPorWebhookSecret } from "@/lib/configuracoes";
 import { processarEventoWebhook } from "@/lib/webhooks";
 
 /**
- * Ordem de validação pensada pro custo: webhookSecret ausente e a
- * assinatura Standard Webhooks são checagens baratas (sem banco) —
- * rejeitam lixo/corrupção rápido, antes de gastar a busca no banco (que
- * decifra N tenants) só quando vale a pena. A defesa real contra
- * forjamento é o webhookSecret (específico por tenant); a assinatura usa
- * uma chave pública documentada, então sozinha não prova autenticidade —
- * só integridade do corpo em trânsito (e, por padrão Standard Webhooks,
- * que não é replay de um evento antigo — tolerância de 5min).
+ * O secret que assina o HMAC (Standard Webhooks) é o MESMO webhookSecret
+ * da query string — é o valor que a gente gera e manda pro campo
+ * `secret` de criarWebhook (ver lib/abacatepay.ts). Por isso a ordem é:
+ * 1) achar o tenant comparando o webhookSecret contra o banco
+ *    (timing-safe, é a autenticação de verdade — só um tenant real tem
+ *    esse valor guardado); 2) só então validar a assinatura usando esse
+ *    MESMO secret como chave. A assinatura sozinha não prova mais nada
+ *    além do que o passo 1 já provou (quem forja a query string forjaria
+ *    a assinatura também) — o valor dela é integridade em trânsito e
+ *    bater com o formato que a AbacatePay realmente envia.
  *
  * CLAUDE.md pede "responder 200 rápido, processar o resto depois", mas
  * em serverless (Vercel) processar de verdade "depois" da resposta não
@@ -29,6 +31,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "webhookSecret ausente." }, { status: 401 });
   }
 
+  const tenantId = await tenantPorWebhookSecret(webhookSecretRecebido);
+  if (!tenantId) {
+    console.error("Webhook AbacatePay: webhookSecret da query string não bateu com nenhum tenant cadastrado.");
+    return NextResponse.json({ error: "webhookSecret inválido." }, { status: 401 });
+  }
+
   // Headers do padrão Standard Webhooks (svix) — a doc da AbacatePay
   // ainda descreve "X-Webhook-Signature" simples, mas o primeiro webhook
   // real recebido veio com esses três (ver nota em lib/abacatepay.ts).
@@ -38,11 +46,11 @@ export async function POST(request: NextRequest) {
 
   let payload: unknown;
   try {
-    const resultado = verificarWebhook(corpoBruto, {
-      webhookId,
-      timestamp: webhookTimestamp,
-      assinatura: assinaturaRecebida,
-    });
+    const resultado = verificarWebhook(
+      corpoBruto,
+      { webhookId, timestamp: webhookTimestamp, assinatura: assinaturaRecebida },
+      webhookSecretRecebido,
+    );
     if (!resultado.ok) {
       console.error("Webhook AbacatePay: assinatura inválida —", resultado.motivo);
       return NextResponse.json({ error: "Assinatura inválida." }, { status: 401 });
@@ -52,12 +60,6 @@ export async function POST(request: NextRequest) {
     // JSON malformado depois de assinatura válida — a lib só faz parse
     // depois de confirmar a assinatura.
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
-  }
-
-  const tenantId = await tenantPorWebhookSecret(webhookSecretRecebido);
-  if (!tenantId) {
-    console.error("Webhook AbacatePay: webhookSecret da query string não bateu com nenhum tenant cadastrado.");
-    return NextResponse.json({ error: "webhookSecret inválido." }, { status: 401 });
   }
 
   try {

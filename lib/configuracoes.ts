@@ -29,8 +29,14 @@ function urlAppPublica(): string | null {
   }
 }
 
+/**
+ * Base64 padrão (não url-safe): é isso que a lib `standardwebhooks` (ver
+ * lib/abacatepay.ts) decodifica pra virar a chave real do HMAC — decode
+ * de base64url falha nela pra secrets que caem com "-" ou "_". Por isso
+ * o "+"/"/" precisam ir percent-encoded na query string (feito abaixo).
+ */
 function gerarWebhookSecret(): string {
-  return randomBytes(32).toString("base64url");
+  return randomBytes(32).toString("base64");
 }
 
 /**
@@ -85,7 +91,7 @@ export async function garantirWebhookConfigurado(
   const secret = gerarWebhookSecret();
   await criarWebhook(chaveApi, {
     name: "creche-saas",
-    endpoint: `${endpointBase}?webhookSecret=${secret}`,
+    endpoint: `${endpointBase}?webhookSecret=${encodeURIComponent(secret)}`,
     secret,
   });
 
