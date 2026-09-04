@@ -158,7 +158,8 @@ export async function gerarCobrancasDoMes(tenantId: string): Promise<ResultadoGe
  * Cobrança avulsa de um pacote — diária comprada sob demanda, não é
  * recorrente. competencia = instante exato (não o mês truncado), então
  * nunca colide com a constraint de unicidade mesmo comprando dois
- * pacotes no mesmo mês.
+ * pacotes no mesmo mês — por isso precisa da checagem manual abaixo:
+ * clicar duas vezes no botão criava duas cobranças pra mesma coisa.
  */
 export async function cobrarPacote(tenantId: string, assinaturaId: string) {
   const chaveApi = await chaveAbacatePayDoTenant(tenantId);
@@ -180,6 +181,18 @@ export async function cobrarPacote(tenantId: string, assinaturaId: string) {
   }
   if (assinatura.status !== "ativa") {
     throw new Error("A assinatura precisa estar ativa pra gerar cobrança.");
+  }
+
+  const cobrancaEmAberto = await prisma.cobranca.findFirst({
+    where: comTenant<Prisma.CobrancaWhereInput>(tenantId, {
+      assinaturaId: assinatura.id,
+      status: { in: ["pendente", "vencida"] },
+    }),
+  });
+  if (cobrancaEmAberto) {
+    throw new Error(
+      "Já existe uma cobrança em aberto pra essa assinatura — veja em Cobranças antes de gerar outra.",
+    );
   }
 
   const tenant = await buscarTenantAtual(tenantId);
