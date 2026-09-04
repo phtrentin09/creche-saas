@@ -78,10 +78,10 @@ describe("idempotência do webhook — não credita diárias em dobro", () => {
 
   function payloadEvento() {
     return {
-      event: "checkout.completed",
+      type: "checkout.completed",
       apiVersion: 2,
       devMode: true,
-      data: { id: "bill_teste", externalId: cobranca.id },
+      data: { checkout: { id: "bill_teste", externalId: cobranca.id, status: "PAID" } },
     };
   }
 

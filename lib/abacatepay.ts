@@ -189,12 +189,11 @@ export function webhookSecretValido(esperado: string, recebido: string | null): 
  * assinado com uma "chave pública" fixa e documentada — mas o primeiro
  * webhook real veio no formato Standard Webhooks (svix), com headers
  * webhook-id/webhook-timestamp/webhook-signature, e essa chave fixa NÃO
- * bate ("No matching signature found"). Faz sentido: Standard Webhooks
- * não tem noção de "chave pública global" — cada endpoint tem o próprio
- * secret, e é exatamente esse secret que a gente já manda no campo
- * `secret` de criarWebhook. É esse mesmo valor (webhookSecret do tenant,
- * o mesmo que vai na query string do endpoint) que assina de verdade —
- * a doc da AbacatePay está desatualizada e não documenta esse formato.
+ * bate. Faz sentido: Standard Webhooks não tem noção de "chave pública
+ * global" — cada endpoint tem o próprio secret, e é exatamente esse
+ * secret que a gente já manda no campo `secret` de criarWebhook. É esse
+ * mesmo valor (webhookSecret do tenant, o mesmo que vai na query string
+ * do endpoint) que assina de verdade.
  *
  * Consequência pro modelo de segurança: como o secret que assina é o
  * MESMO que identifica o tenant na query string, a assinatura sozinha
@@ -204,12 +203,12 @@ export function webhookSecretValido(esperado: string, recebido: string | null): 
  * contra corrupção em trânsito e bater com o formato que a AbacatePay
  * realmente envia, não uma segunda camada de autenticação independente.
  *
- * Usa a lib oficial (`standardwebhooks`) em vez de reimplementar: ela já
- * decodifica a chave em base64 corretamente (uma implementação manual
- * ingênua usaria os bytes da string crua como chave — errado, é assim
- * que a primeira tentativa falhou), valida timestamp contra replay
- * (tolerância de 5min embutida), aceita múltiplas assinaturas espaço-
- * separadas (rotação de chave) e compara timing-safe.
+ * Usa a lib oficial (`standardwebhooks`) em vez de reimplementar (timing-
+ * safe e replay de 5min saem de graça) — mas com `{ format: "raw" }`:
+ * confirmado testando contra um webhook real (comparando a assinatura
+ * calculada nos dois formatos com a que a AbacatePay mandou) que eles
+ * assinam com os bytes crus do secret, NÃO com o secret decodificado de
+ * base64 como o padrão Standard Webhooks assume. Ver nota no CLAUDE.md.
  */
 export type ResultadoVerificacaoWebhook =
   | { ok: true; payload: unknown }
@@ -220,7 +219,7 @@ export function verificarWebhook(
   headers: { webhookId: string | null; timestamp: string | null; assinatura: string | null },
   secretoTenant: string,
 ): ResultadoVerificacaoWebhook {
-  const webhook = new Webhook(secretoTenant);
+  const webhook = new Webhook(secretoTenant, { format: "raw" });
   try {
     const payload = webhook.verify(corpoBruto, {
       "webhook-id": headers.webhookId ?? "",
@@ -237,52 +236,4 @@ export function verificarWebhook(
     // inesperado — não é "assinatura inválida", deixa subir.
     throw erro;
   }
-}
-
-/**
- * Diagnóstico temporário (não é código de produção definitivo — remover
- * depois de confirmar o formato certo). Calcula a assinatura esperada
- * das DUAS formas possíveis de tratar o secret (decodificado de base64,
- * que é o que verificarWebhook usa hoje; e cru, bytes da string) usando
- * a própria lib (Webhook.sign), pra comparar contra o que a AbacatePay
- * mandou sem expor o secret em si — só comprimentos e assinaturas
- * calculadas, que não permitem recuperar o secret.
- */
-export function diagnosticarAssinaturaWebhook(
-  corpoBruto: string,
-  webhookId: string,
-  timestamp: string,
-  secretoTenant: string,
-): Record<string, unknown> {
-  const conteudoAssinado = `${webhookId}.${timestamp}.${corpoBruto}`;
-  const timestampDate = new Date(Number(timestamp) * 1000);
-
-  const resultado: Record<string, unknown> = {
-    conteudoAssinado: JSON.stringify(conteudoAssinado),
-    tamanhoConteudoAssinado: conteudoAssinado.length,
-    tamanhoCorpo: corpoBruto.length,
-    tamanhoSecretCru: secretoTenant.length,
-  };
-
-  try {
-    resultado.assinatura_secretDecodificadoBase64 = new Webhook(secretoTenant).sign(
-      webhookId,
-      timestampDate,
-      corpoBruto,
-    );
-  } catch (erro) {
-    resultado.erro_secretDecodificadoBase64 = erro instanceof Error ? erro.message : String(erro);
-  }
-
-  try {
-    resultado.assinatura_secretCru = new Webhook(secretoTenant, { format: "raw" }).sign(
-      webhookId,
-      timestampDate,
-      corpoBruto,
-    );
-  } catch (erro) {
-    resultado.erro_secretCru = erro instanceof Error ? erro.message : String(erro);
-  }
-
-  return resultado;
 }

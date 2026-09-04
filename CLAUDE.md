@@ -81,6 +81,9 @@ contendo o link. Não integrar API oficial de WhatsApp.
   disso, `garantirWebhookConfigurado` (lib/configuracoes.ts) trata falha ao
   deletar webhook antigo como best-effort — nunca bloqueia a criação do
   novo. Testado em setembro/2026; vale reconferir com chave de produção.
+- AbacatePay usa Standard Webhooks (headers webhook-id, webhook-timestamp,
+  webhook-signature), mas assina com o secret em texto cru, não decodificado
+  de base64 como a especificação assume. Descoberto em setembro/2026.
 
 ## Página pública de pagamento
 Rota /pagar/[token], sem autenticação. O token é aleatório e longo (crypto,

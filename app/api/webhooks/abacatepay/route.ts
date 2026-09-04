@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { diagnosticarAssinaturaWebhook, verificarWebhook } from "@/lib/abacatepay";
+import { verificarWebhook } from "@/lib/abacatepay";
 import { tenantPorWebhookSecret } from "@/lib/configuracoes";
 import { processarEventoWebhook } from "@/lib/webhooks";
 
@@ -52,21 +52,7 @@ export async function POST(request: NextRequest) {
       webhookSecretRecebido,
     );
     if (!resultado.ok) {
-      // Diagnóstico temporário — remover depois de confirmar o formato
-      // certo. Nunca loga o secret em si, só assinaturas calculadas e
-      // comprimentos (não dá pra recuperar o secret a partir disso).
-      const diagnostico = diagnosticarAssinaturaWebhook(
-        corpoBruto,
-        webhookId ?? "",
-        webhookTimestamp ?? "",
-        webhookSecretRecebido,
-      );
-      console.error(
-        "Webhook AbacatePay: assinatura inválida —",
-        resultado.motivo,
-        "\nDiagnóstico:",
-        JSON.stringify({ ...diagnostico, assinaturaRecebida }, null, 2),
-      );
+      console.error("Webhook AbacatePay: assinatura inválida —", resultado.motivo);
       return NextResponse.json({ error: "Assinatura inválida." }, { status: 401 });
     }
     payload = resultado.payload;
@@ -82,13 +68,7 @@ export async function POST(request: NextRequest) {
     const resultado = await processarEventoWebhook(webhookId as string, payload);
     return NextResponse.json({ ok: true, resultado });
   } catch (erro) {
-    console.error(
-      "Erro ao processar webhook AbacatePay:",
-      erro,
-      // Diagnóstico temporário: formato exato do corpo (id/event/data)
-      // nunca confirmado contra um payload real da AbacatePay.
-      "Corpo recebido:", corpoBruto,
-    );
+    console.error("Erro ao processar webhook AbacatePay:", erro);
     // 500 de propósito (não 200): se falhou de verdade, é melhor a
     // AbacatePay reenviar (retry deles) do que a gente perder o evento.
     return NextResponse.json({ error: "Erro ao processar." }, { status: 500 });

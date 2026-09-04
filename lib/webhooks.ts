@@ -28,8 +28,11 @@ function ehObjeto(valor: unknown): valor is Record<string, unknown> {
  * `webhookId` vem do header "webhook-id" (padrão Standard Webhooks), não
  * de um campo dentro do corpo — é a identidade confiável pra idempotência
  * porque é garantida pelo protocolo (mesmo id reenviado em retry do
- * MESMO evento), enquanto o formato exato do corpo é AbacatePay-specific
- * e nunca totalmente confirmado.
+ * MESMO evento). Formato do corpo confirmado contra um payload real:
+ * `{ type, timestamp, apiVersion, devMode, data: { checkout: {...} } }`
+ * — o tipo do evento vem em "type" (não "event"), e os dados do checkout
+ * (incluindo externalId) ficam aninhados em "data.checkout" (não direto
+ * em "data").
  *
  * Idempotência de verdade: o INSERT em EventoWebhook usa a constraint
  * única em provedorEventoId DENTRO da mesma transação que credita o
@@ -47,9 +50,9 @@ export async function processarEventoWebhook(
   }
 
   const eventoId = webhookId;
-  const evento = payload.event;
+  const evento = payload.type;
   if (typeof evento !== "string") {
-    throw new Error("Payload do webhook sem event.");
+    throw new Error("Payload do webhook sem type.");
   }
 
   const payloadJson = payload as Prisma.InputJsonValue;
@@ -68,9 +71,10 @@ export async function processarEventoWebhook(
   }
 
   const dados = ehObjeto(payload.data) ? payload.data : null;
-  const externalId = dados && typeof dados.externalId === "string" ? dados.externalId : null;
+  const checkout = dados && ehObjeto(dados.checkout) ? dados.checkout : null;
+  const externalId = checkout && typeof checkout.externalId === "string" ? checkout.externalId : null;
   if (!externalId) {
-    throw new Error("Payload do webhook sem data.externalId — não dá pra saber qual cobrança é.");
+    throw new Error("Payload do webhook sem data.checkout.externalId — não dá pra saber qual cobrança é.");
   }
 
   try {
