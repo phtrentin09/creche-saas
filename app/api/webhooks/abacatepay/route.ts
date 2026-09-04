@@ -1,15 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { assinaturaWebhookValida } from "@/lib/abacatepay";
+import { verificarWebhook } from "@/lib/abacatepay";
 import { tenantPorWebhookSecret } from "@/lib/configuracoes";
 import { processarEventoWebhook } from "@/lib/webhooks";
 
 /**
- * Ordem de validação pensada pro custo: webhookSecret ausente e HMAC são
- * checagens baratas (sem banco) — rejeitam lixo/corrupção rápido, antes
- * de gastar a busca no banco (que decifra N tenants) só quando vale a
- * pena. A defesa real contra forjamento é o webhookSecret (específico
- * por tenant); o HMAC usa uma chave pública documentada, então sozinho
- * não prova autenticidade — só integridade do corpo em trânsito.
+ * Ordem de validação pensada pro custo: webhookSecret ausente e a
+ * assinatura Standard Webhooks são checagens baratas (sem banco) —
+ * rejeitam lixo/corrupção rápido, antes de gastar a busca no banco (que
+ * decifra N tenants) só quando vale a pena. A defesa real contra
+ * forjamento é o webhookSecret (específico por tenant); a assinatura usa
+ * uma chave pública documentada, então sozinha não prova autenticidade —
+ * só integridade do corpo em trânsito (e, por padrão Standard Webhooks,
+ * que não é replay de um evento antigo — tolerância de 5min).
  *
  * CLAUDE.md pede "responder 200 rápido, processar o resto depois", mas
  * em serverless (Vercel) processar de verdade "depois" da resposta não
@@ -29,24 +31,27 @@ export async function POST(request: NextRequest) {
 
   // Headers do padrão Standard Webhooks (svix) — a doc da AbacatePay
   // ainda descreve "X-Webhook-Signature" simples, mas o primeiro webhook
-  // real recebido veio com esses três (ver nota em assinaturaWebhookValida).
+  // real recebido veio com esses três (ver nota em lib/abacatepay.ts).
   const webhookId = request.headers.get("webhook-id");
   const webhookTimestamp = request.headers.get("webhook-timestamp");
   const assinaturaRecebida = request.headers.get("webhook-signature");
 
-  if (!assinaturaWebhookValida(webhookId, webhookTimestamp, corpoBruto, assinaturaRecebida)) {
-    // Diagnóstico temporário: primeiro ciclo real contra a AbacatePay,
-    // formato de headers e payload ainda sendo confirmado na prática.
-    // Nada sensível aqui — assinatura recebida não é a chave, e id/
-    // timestamp não são segredo.
-    console.error(
-      "Webhook AbacatePay: assinatura inválida.",
-      "webhook-id:", webhookId,
-      "webhook-timestamp:", webhookTimestamp,
-      "webhook-signature recebida:", assinaturaRecebida,
-      "Headers recebidos:", [...request.headers.keys()].join(", "),
-    );
-    return NextResponse.json({ error: "Assinatura inválida." }, { status: 401 });
+  let payload: unknown;
+  try {
+    const resultado = verificarWebhook(corpoBruto, {
+      webhookId,
+      timestamp: webhookTimestamp,
+      assinatura: assinaturaRecebida,
+    });
+    if (!resultado.ok) {
+      console.error("Webhook AbacatePay: assinatura inválida —", resultado.motivo);
+      return NextResponse.json({ error: "Assinatura inválida." }, { status: 401 });
+    }
+    payload = resultado.payload;
+  } catch {
+    // JSON malformado depois de assinatura válida — a lib só faz parse
+    // depois de confirmar a assinatura.
+    return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
   }
 
   const tenantId = await tenantPorWebhookSecret(webhookSecretRecebido);
@@ -55,16 +60,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "webhookSecret inválido." }, { status: 401 });
   }
 
-  let payload: unknown;
   try {
-    payload = JSON.parse(corpoBruto);
-  } catch {
-    return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
-  }
-
-  try {
-    // webhookId nunca é null aqui: assinaturaWebhookValida já teria
-    // retornado false (e a função já teria voltado 401) se fosse.
+    // webhookId nunca é null aqui: verificarWebhook já teria retornado
+    // { ok: false } (e a rota já teria voltado 401) se fosse.
     const resultado = await processarEventoWebhook(webhookId as string, payload);
     return NextResponse.json({ ok: true, resultado });
   } catch (erro) {

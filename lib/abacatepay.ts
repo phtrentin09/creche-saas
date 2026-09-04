@@ -1,7 +1,8 @@
 // Sem imports com alias "@/" de propósito — ver lib/criptografia.ts.
 // A chave de API é sempre parâmetro de função aqui dentro, nunca lida de
 // variável de ambiente: cada creche tem a própria conta no AbacatePay.
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
+import { Webhook, WebhookVerificationError } from "standardwebhooks";
 
 const URL_BASE = "https://api.abacatepay.com/v2";
 
@@ -116,7 +117,7 @@ export async function criarCobrancaNoAbacatePay(
 
 // --- Webhooks ---
 
-type Webhook = {
+type WebhookRegistrado = {
   id: string;
   name: string;
   endpoint: string;
@@ -133,8 +134,8 @@ type Webhook = {
 export async function listarWebhooksPorEndpoint(
   chaveApi: string,
   endpointBase: string,
-): Promise<Webhook[]> {
-  const resultado = await chamarApi<Webhook[]>(
+): Promise<WebhookRegistrado[]> {
+  const resultado = await chamarApi<WebhookRegistrado[]>(
     chaveApi,
     "GET",
     `/webhooks/list?search=${encodeURIComponent(endpointBase)}`,
@@ -148,8 +149,8 @@ export async function listarWebhooksPorEndpoint(
 export async function criarWebhook(
   chaveApi: string,
   dados: { name: string; endpoint: string; secret: string },
-): Promise<Webhook> {
-  return chamarApi<Webhook>(chaveApi, "POST", "/webhooks/create", {
+): Promise<WebhookRegistrado> {
+  return chamarApi<WebhookRegistrado>(chaveApi, "POST", "/webhooks/create", {
     name: dados.name,
     endpoint: dados.endpoint,
     secret: dados.secret,
@@ -158,7 +159,7 @@ export async function criarWebhook(
 }
 
 export async function deletarWebhook(chaveApi: string, webhookId: string): Promise<void> {
-  await chamarApi<Webhook>(chaveApi, "POST", `/webhooks/delete?id=${encodeURIComponent(webhookId)}`);
+  await chamarApi<WebhookRegistrado>(chaveApi, "POST", `/webhooks/delete?id=${encodeURIComponent(webhookId)}`);
 }
 
 // --- Validação (webhook recebido) ---
@@ -184,40 +185,55 @@ export function webhookSecretValido(esperado: string, recebido: string | null): 
 }
 
 // Chave pública fixa e documentada pela AbacatePay pra validar a
-// assinatura HMAC do webhook. É igual pra toda conta (não é segredo por
+// assinatura do webhook. É igual pra toda conta (não é segredo por
 // tenant) — serve pra confirmar que o corpo não foi corrompido/alterado
 // em trânsito. A defesa real contra forjamento é o webhookSecret (ver
 // webhookSecretValido), que é específico por tenant.
+//
+// É base64 válido (decodifica pra 192 bytes) mas sem o prefixo
+// "whsec_" que o padrão Standard Webhooks costuma usar — a lib oficial
+// aceita os dois formatos (com ou sem prefixo) e decodifica igual.
 const CHAVE_PUBLICA_ABACATEPAY =
   "t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdiDkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9";
 
 /**
  * A doc da AbacatePay descreve um header "X-Webhook-Signature" simples,
  * mas o primeiro webhook real recebido (testado contra produção deles,
- * não contra o que a doc diz) veio com headers "webhook-id" e
- * "webhook-signature" — assinatura do padrão Standard Webhooks (svix),
- * que a doc está desatualizada e não documenta. Formato: o header
- * webhook-signature traz uma ou mais assinaturas espaço-separadas, cada
- * uma "v1,<base64>"; o conteúdo assinado é "{id}.{timestamp}.{corpo}",
- * não o corpo sozinho.
+ * não contra o que a doc diz) veio no formato Standard Webhooks (svix):
+ * headers webhook-id/webhook-timestamp/webhook-signature, conteúdo
+ * assinado "{id}.{timestamp}.{corpo}", chave em base64 — doc deles está
+ * desatualizada e não menciona nada disso.
+ *
+ * Usa a lib oficial (`standardwebhooks`) em vez de reimplementar: ela já
+ * decodifica a chave em base64 corretamente (uma implementação manual
+ * ingênua usaria os bytes da string crua como chave — errado), valida
+ * timestamp contra replay (tolerância de 5min embutida), aceita múltiplas
+ * assinaturas espaço-separadas (rotação de chave) e compara timing-safe.
  */
-export function assinaturaWebhookValida(
-  webhookId: string | null,
-  timestamp: string | null,
-  corpoBruto: string,
-  assinaturaRecebida: string | null,
-): boolean {
-  if (!webhookId || !timestamp || !assinaturaRecebida) {
-    return false;
-  }
-  const conteudoAssinado = `${webhookId}.${timestamp}.${corpoBruto}`;
-  const assinaturaEsperada = createHmac("sha256", CHAVE_PUBLICA_ABACATEPAY)
-    .update(Buffer.from(conteudoAssinado, "utf8"))
-    .digest("base64");
+const webhookAbacatePay = new Webhook(CHAVE_PUBLICA_ABACATEPAY);
 
-  return assinaturaRecebida
-    .split(" ")
-    .map((parte) => parte.split(",")[1])
-    .filter((assinatura): assinatura is string => Boolean(assinatura))
-    .some((assinatura) => compararTimingSafe(assinaturaEsperada, assinatura));
+export type ResultadoVerificacaoWebhook =
+  | { ok: true; payload: unknown }
+  | { ok: false; motivo: string };
+
+export function verificarWebhook(
+  corpoBruto: string,
+  headers: { webhookId: string | null; timestamp: string | null; assinatura: string | null },
+): ResultadoVerificacaoWebhook {
+  try {
+    const payload = webhookAbacatePay.verify(corpoBruto, {
+      "webhook-id": headers.webhookId ?? "",
+      "webhook-timestamp": headers.timestamp ?? "",
+      "webhook-signature": headers.assinatura ?? "",
+    });
+    return { ok: true, payload };
+  } catch (erro) {
+    if (erro instanceof WebhookVerificationError) {
+      return { ok: false, motivo: erro.message };
+    }
+    // JSON malformado depois de assinatura válida (a lib só faz
+    // JSON.parse depois de confirmar a assinatura), ou outro erro
+    // inesperado — não é "assinatura inválida", deixa subir.
+    throw erro;
+  }
 }
