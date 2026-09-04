@@ -73,6 +73,15 @@ Regras do webhook:
 Envio de cobrança na v1 é MANUAL: um botão que abre wa.me com a mensagem pronta
 contendo o link. Não integrar API oficial de WhatsApp.
 
+## Comportamentos não documentados da AbacatePay
+- Chave de dev (`abc_dev_...`) retorna 401 "Insufficient permissions" ao
+  deletar webhook (`POST /webhooks/delete`), mesmo criando e listando
+  webhooks normalmente com a mesma chave. Não está na documentação;
+  confirmado com chamada direta à API, fora do código do projeto. Por causa
+  disso, `garantirWebhookConfigurado` (lib/configuracoes.ts) trata falha ao
+  deletar webhook antigo como best-effort — nunca bloqueia a criação do
+  novo. Testado em setembro/2026; vale reconferir com chave de produção.
+
 ## Página pública de pagamento
 Rota /pagar/[token], sem autenticação. O token é aleatório e longo (crypto,
 mínimo 32 caracteres) — nunca use o id sequencial da cobrança na URL, isso
