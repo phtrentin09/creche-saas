@@ -24,7 +24,7 @@ export default async function PaginaNovoAgendamento({
   const pets = await buscarPetsParaAgendar(tenantId, busca);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       <h1 className="text-lg font-semibold">
         Agendar para {formatarDataDia(dataDeStringISO(dataISO))}
       </h1>

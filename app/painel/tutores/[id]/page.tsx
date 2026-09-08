@@ -23,7 +23,7 @@ export default async function PaginaTutor({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <h1 className="text-lg font-semibold">{tutor.nome}</h1>
 
       <FormularioTutor

@@ -10,7 +10,7 @@ export default async function PaginaPlanos() {
   const planos = await listarPlanos(tenantId);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Planos</h1>
         <Button render={<Link href="/painel/planos/novo" />} nativeButton={false} size="sm">

@@ -9,7 +9,7 @@ export default async function PaginaTutores() {
   const tutores = await listarTutores(tenantId);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Tutores</h1>
         <Button render={<Link href="/painel/tutores/novo" />} nativeButton={false} size="sm">

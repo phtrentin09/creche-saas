@@ -11,7 +11,7 @@ export default async function PaginaConfiguracoes() {
   const chaveMascarada = mascararChave(chavePlana);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <h1 className="text-lg font-semibold">Configurações</h1>
 
       <section className="space-y-3">

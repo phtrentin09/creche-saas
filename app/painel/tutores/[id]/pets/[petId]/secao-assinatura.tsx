@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { BotaoAcao } from "@/components/botao-acao";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import type { Plano, StatusAssinatura } from "@/lib/generated/prisma";
 import { formatarData, formatarMoeda } from "@/lib/formatacao";
+import { cn } from "@/lib/utils";
 import {
   ajustarSaldoAction,
   alterarStatusAssinaturaAction,
@@ -26,9 +27,15 @@ import {
 const estadoInicial: EstadoAssinatura = {};
 
 const rotuloStatus: Record<StatusAssinatura, string> = {
-  ativa: "Ativa",
+  ativa: "Em dia",
   pausada: "Pausada",
   cancelada: "Cancelada",
+};
+
+const variantePorStatus: Record<StatusAssinatura, "success" | "neutral" | "destructive"> = {
+  ativa: "success",
+  pausada: "neutral",
+  cancelada: "destructive",
 };
 
 type AssinaturaComPlano = {
@@ -38,6 +45,14 @@ type AssinaturaComPlano = {
   saldoDiarias: number;
   plano: Plano;
 };
+
+function TituloCartao({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10.5px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+      {children}
+    </p>
+  );
+}
 
 export function SecaoAssinatura({
   tutorId,
@@ -50,104 +65,156 @@ export function SecaoAssinatura({
   assinatura: AssinaturaComPlano | null;
   planos: Plano[];
 }) {
+  const [editando, setEditando] = useState(false);
   const semAssinaturaAtiva = !assinatura || assinatura.status === "cancelada";
 
   if (semAssinaturaAtiva) {
     return (
-      <section className="space-y-3">
-        <h2 className="font-medium">Assinatura</h2>
-        <p className="text-sm text-muted-foreground">Sem assinatura ativa.</p>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <TituloCartao>Plano ativo</TituloCartao>
+        <p className="mt-2 text-sm text-muted-foreground">Sem assinatura ativa.</p>
         {planos.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             Cadastre um plano antes de vincular uma assinatura.
           </p>
         ) : (
-          <FormularioNovaAssinatura tutorId={tutorId} petId={petId} planos={planos} />
+          <div className="mt-3">
+            <FormularioNovaAssinatura tutorId={tutorId} petId={petId} planos={planos} />
+          </div>
         )}
-      </section>
+      </div>
     );
   }
 
-  return (
-    <section className="space-y-3">
-      <h2 className="font-medium">Assinatura</h2>
-      <div className="space-y-3 rounded-lg border p-4">
-        <div className="flex items-center justify-between">
-          <p className="font-medium">{assinatura.plano.nome}</p>
-          <Badge variant={assinatura.status === "ativa" ? "default" : "secondary"}>
-            {rotuloStatus[assinatura.status]}
-          </Badge>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {formatarMoeda(assinatura.plano.valorCentavos)} ·{" "}
-          {assinatura.plano.tipo === "mensal"
-            ? `vence dia ${assinatura.plano.diaVencimento}`
-            : `${assinatura.plano.qtdDiarias} diárias no pacote`}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Início: {formatarData(assinatura.dataInicio)}
-        </p>
+  const total = assinatura.plano.qtdDiarias ?? 0;
+  const usadas = Math.max(total - assinatura.saldoDiarias, 0);
 
-        {assinatura.plano.tipo === "pacote" && (
-          <>
-            <FormularioAjusteSaldo
-              tutorId={tutorId}
-              petId={petId}
-              assinaturaId={assinatura.id}
-              saldoAtual={assinatura.saldoDiarias}
-            />
-            {assinatura.status === "ativa" && (
-              <FormularioCobrarPacote
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between">
+        <TituloCartao>Plano ativo</TituloCartao>
+        <Badge variant={variantePorStatus[assinatura.status]}>{rotuloStatus[assinatura.status]}</Badge>
+      </div>
+
+      <div className="mt-2 flex items-baseline justify-between gap-2">
+        <p className="text-[17px] font-semibold">{assinatura.plano.nome}</p>
+        <p className="font-heading text-[17px] font-bold whitespace-nowrap">
+          {formatarMoeda(assinatura.plano.valorCentavos)}
+        </p>
+      </div>
+      <p className="mt-1 text-[13px] text-muted-foreground">
+        Comprado em {formatarData(assinatura.dataInicio)}
+      </p>
+
+      {assinatura.plano.tipo === "pacote" ? (
+        <div className="mt-3">
+          <div className="flex items-baseline justify-between">
+            <p className="flex items-baseline gap-1">
+              <span className="font-heading text-[22px] font-bold text-brand-900">
+                {assinatura.saldoDiarias}
+              </span>
+              <span className="text-[13.5px] font-semibold text-ink-2">
+                de {total} diárias restantes
+              </span>
+            </p>
+            <span className="text-xs text-muted-foreground">{usadas} usadas</span>
+          </div>
+          {total > 0 && (
+            <div className="mt-2 flex gap-[3px]">
+              {Array.from({ length: total }).map((_, indice) => (
+                <span
+                  key={indice}
+                  className={cn(
+                    "h-2.5 flex-1 rounded-[2px]",
+                    indice < usadas ? "bg-chip-bg" : "bg-primary",
+                  )}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="mt-2 text-[13px] text-muted-foreground">
+          Vence dia {assinatura.plano.diaVencimento}
+        </p>
+      )}
+
+      {editando ? (
+        <div className="mt-4 space-y-3 border-t border-line-soft pt-3">
+          {assinatura.plano.tipo === "pacote" && (
+            <>
+              <FormularioAjusteSaldo
                 tutorId={tutorId}
                 petId={petId}
                 assinaturaId={assinatura.id}
+                saldoAtual={assinatura.saldoDiarias}
               />
-            )}
-          </>
-        )}
-
-        <div className="grid grid-cols-2 gap-2 pt-2">
-          {assinatura.status === "ativa" ? (
-            <BotaoAcao
-              acao={alterarStatusAssinaturaAction.bind(
-                null,
-                tutorId,
-                petId,
-                assinatura.id,
-                "pausada",
+              {assinatura.status === "ativa" && (
+                <FormularioCobrarPacote
+                  tutorId={tutorId}
+                  petId={petId}
+                  assinaturaId={assinatura.id}
+                />
               )}
-            >
-              Pausar
-            </BotaoAcao>
-          ) : (
-            <BotaoAcao
-              acao={alterarStatusAssinaturaAction.bind(
-                null,
-                tutorId,
-                petId,
-                assinatura.id,
-                "ativa",
-              )}
-            >
-              Reativar
-            </BotaoAcao>
+            </>
           )}
-          <BotaoAcao
-            acao={alterarStatusAssinaturaAction.bind(
-              null,
-              tutorId,
-              petId,
-              assinatura.id,
-              "cancelada",
+
+          <div className="grid grid-cols-2 gap-2">
+            {assinatura.status === "ativa" ? (
+              <BotaoAcao
+                acao={alterarStatusAssinaturaAction.bind(
+                  null,
+                  tutorId,
+                  petId,
+                  assinatura.id,
+                  "pausada",
+                )}
+              >
+                Pausar
+              </BotaoAcao>
+            ) : (
+              <BotaoAcao
+                acao={alterarStatusAssinaturaAction.bind(
+                  null,
+                  tutorId,
+                  petId,
+                  assinatura.id,
+                  "ativa",
+                )}
+              >
+                Reativar
+              </BotaoAcao>
             )}
-            variant="destructive"
-            mensagemConfirmacao="Cancelar esta assinatura?"
-          >
-            Cancelar
-          </BotaoAcao>
+            <BotaoAcao
+              acao={alterarStatusAssinaturaAction.bind(
+                null,
+                tutorId,
+                petId,
+                assinatura.id,
+                "cancelada",
+              )}
+              variant="destructive"
+              mensagemConfirmacao="Cancelar esta assinatura?"
+            >
+              Cancelar
+            </BotaoAcao>
+          </div>
+
+          <Button variant="ghost" size="sm" className="w-full" onClick={() => setEditando(false)}>
+            Fechar
+          </Button>
         </div>
-      </div>
-    </section>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3 w-full"
+          onClick={() => setEditando(true)}
+        >
+          Editar
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -207,7 +274,7 @@ function FormularioAjusteSaldo({
   const [estado, dispatch, pendente] = useActionState(acaoComIds, estadoInicial);
 
   return (
-    <form action={dispatch} className="space-y-2 border-t pt-3">
+    <form action={dispatch} className="space-y-2">
       <Label htmlFor="saldoDiarias">
         Saldo de diárias — ajuste manual (pago fora do sistema)
       </Label>
@@ -243,7 +310,7 @@ function FormularioCobrarPacote({
   const [estado, dispatch, pendente] = useActionState(acaoComIds, estadoInicial);
 
   return (
-    <form action={dispatch} className="space-y-2 border-t pt-3">
+    <form action={dispatch} className="space-y-2">
       <Button type="submit" variant="outline" className="h-11 w-full" disabled={pendente}>
         {pendente ? "Gerando cobrança..." : "Cobrar pacote"}
       </Button>

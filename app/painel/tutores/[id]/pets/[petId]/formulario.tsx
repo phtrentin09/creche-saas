@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,18 @@ import { atualizarPetAction, type EstadoPet } from "../../pets-acoes";
 
 const estadoInicial: EstadoPet = {};
 
+type ValoresPet = {
+  nome: string;
+  raca: string | null;
+  porte: string | null;
+  castrado: boolean;
+  observacoes: string | null;
+};
+
+// Sem card equivalente no handoff de design (que trata nome/raça/porte
+// como texto fixo no header e "Observações" dentro do card Tutor) — mas
+// editar esses campos precisa continuar existindo em algum lugar, então
+// fica atrás de "Editar" como as outras seções.
 export function FormularioEditarPet({
   tutorId,
   petId,
@@ -17,16 +29,75 @@ export function FormularioEditarPet({
 }: {
   tutorId: string;
   petId: string;
-  valoresIniciais: {
-    nome: string;
-    raca: string | null;
-    porte: string | null;
-    castrado: boolean;
-    observacoes: string | null;
-  };
+  valoresIniciais: ValoresPet;
+}) {
+  const [editando, setEditando] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between">
+        <p className="text-[10.5px] font-bold tracking-[0.08em] text-muted-foreground uppercase">
+          Dados do pet
+        </p>
+        {!editando && (
+          <Button variant="outline" size="sm" onClick={() => setEditando(true)}>
+            Editar
+          </Button>
+        )}
+      </div>
+
+      {editando ? (
+        <div className="mt-3">
+          <CamposPet
+            tutorId={tutorId}
+            petId={petId}
+            valoresIniciais={valoresIniciais}
+            aoSalvar={() => setEditando(false)}
+            aoCancelar={() => setEditando(false)}
+          />
+        </div>
+      ) : (
+        <dl className="mt-2 space-y-1 text-[13px] text-muted-foreground">
+          <div className="flex justify-between gap-2">
+            <dt>Raça</dt>
+            <dd className="text-foreground">{valoresIniciais.raca || "—"}</dd>
+          </div>
+          <div className="flex justify-between gap-2">
+            <dt>Porte</dt>
+            <dd className="text-foreground">{valoresIniciais.porte || "—"}</dd>
+          </div>
+          <div className="flex justify-between gap-2">
+            <dt>Castrado</dt>
+            <dd className="text-foreground">{valoresIniciais.castrado ? "Sim" : "Não"}</dd>
+          </div>
+        </dl>
+      )}
+    </div>
+  );
+}
+
+function CamposPet({
+  tutorId,
+  petId,
+  valoresIniciais,
+  aoSalvar,
+  aoCancelar,
+}: {
+  tutorId: string;
+  petId: string;
+  valoresIniciais: ValoresPet;
+  aoSalvar: () => void;
+  aoCancelar: () => void;
 }) {
   const acaoComIds = atualizarPetAction.bind(null, tutorId, petId);
-  const [estado, acao, pendente] = useActionState(acaoComIds, estadoInicial);
+  const [estado, acao, pendente] = useActionState(
+    async (estadoAnterior: EstadoPet, formData: FormData) => {
+      const resultado = await acaoComIds(estadoAnterior, formData);
+      if (!resultado.erro) aoSalvar();
+      return resultado;
+    },
+    estadoInicial,
+  );
 
   return (
     <form action={acao} className="space-y-5">
@@ -79,9 +150,14 @@ export function FormularioEditarPet({
 
       {estado.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
 
-      <Button type="submit" size="lg" className="h-12 w-full text-base" disabled={pendente}>
-        {pendente ? "Salvando..." : "Salvar alterações"}
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button type="button" variant="outline" className="h-12" onClick={aoCancelar}>
+          Cancelar
+        </Button>
+        <Button type="submit" className="h-12 text-base" disabled={pendente}>
+          {pendente ? "Salvando..." : "Salvar"}
+        </Button>
+      </div>
     </form>
   );
 }

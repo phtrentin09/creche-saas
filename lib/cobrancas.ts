@@ -7,13 +7,23 @@ import { buscarTenantAtual, comTenant } from "@/lib/tenant";
 
 type ClientePrisma = PrismaClient | Prisma.TransactionClient;
 
+export type SituacaoMensalidade = { emAtraso: boolean; dias: number };
+
 /**
  * Etapa 2 deixou isso como placeholder (sempre false) — agora que
  * webhook/Cobranca funcionam de verdade, vale a pena de verdade. Não
  * confia só em status "vencida" (não existe job agendado que faz essa
  * transição sozinho ainda) — checa também pendente + vencimento passado.
+ *
+ * Retorna a quantidade de dias em atraso (direção visual pede o texto
+ * "Mensalidade em atraso · N dias" na agenda) — mesma query de sempre,
+ * só devolvendo mais do que já buscava; a mais antiga vencida é a que
+ * mais atrasou, por isso o orderBy.
  */
-export async function temMensalidadeEmAtraso(tenantId: string, petId: string): Promise<boolean> {
+export async function temMensalidadeEmAtraso(
+  tenantId: string,
+  petId: string,
+): Promise<SituacaoMensalidade> {
   const cobranca = await prisma.cobranca.findFirst({
     where: {
       tenantId,
@@ -21,8 +31,19 @@ export async function temMensalidadeEmAtraso(tenantId: string, petId: string): P
       status: { in: ["pendente", "vencida"] },
       vencimento: { lt: new Date() },
     },
+    orderBy: { vencimento: "asc" },
+    select: { vencimento: true },
   });
-  return !!cobranca;
+
+  if (!cobranca) {
+    return { emAtraso: false, dias: 0 };
+  }
+
+  const dias = Math.max(
+    Math.floor((Date.now() - cobranca.vencimento.getTime()) / (1000 * 60 * 60 * 24)),
+    1,
+  );
+  return { emAtraso: true, dias };
 }
 
 function gerarToken(): string {

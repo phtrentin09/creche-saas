@@ -17,7 +17,7 @@ export default async function PaginaNovoPet({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       <h1 className="text-lg font-semibold">Novo pet de {tutor.nome}</h1>
       <FormularioNovoPet tutorId={tutor.id} />
     </div>

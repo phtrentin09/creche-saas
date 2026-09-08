@@ -19,6 +19,23 @@ export async function listarAgendamentosDoDia(tenantId: string, data: Date) {
   });
 }
 
+/**
+ * Único dado novo que a direção visual pediu (bloco "Presenças recentes"
+ * na ficha do pet) — reaproveitado também pra saber se o pet está
+ * presente HOJE (o mais recente da lista, se a data bater com hoje).
+ */
+export async function listarUltimosAgendamentosDoPet(
+  tenantId: string,
+  petId: string,
+  limite = 6,
+) {
+  return prisma.agendamento.findMany({
+    where: comTenant(tenantId, { petId }),
+    orderBy: { data: "desc" },
+    take: limite,
+  });
+}
+
 export async function buscarPetsParaAgendar(tenantId: string, busca: string) {
   return prisma.pet.findMany({
     where: comTenant(tenantId, {

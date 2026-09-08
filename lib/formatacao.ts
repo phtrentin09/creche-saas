@@ -54,6 +54,19 @@ export function formatarDataDiaComSemana(data: Date): string {
   return `${diaSemana.charAt(0).toUpperCase()}${diaSemana.slice(1)}, ${dataCurta}`;
 }
 
+/** "Qua, 02/09" — lista de presenças recentes na ficha do pet. Mesma regra de fuso de formatarDataDia. */
+export function formatarDataDiaAbreviada(data: Date): string {
+  const diaSemana = data
+    .toLocaleDateString("pt-BR", { timeZone: "UTC", weekday: "short" })
+    .replace(".", "");
+  const dataCurta = data.toLocaleDateString("pt-BR", {
+    timeZone: "UTC",
+    day: "2-digit",
+    month: "2-digit",
+  });
+  return `${diaSemana.charAt(0).toUpperCase()}${diaSemana.slice(1)}, ${dataCurta}`;
+}
+
 /**
  * "YYYY-MM-DD" no fuso America/Sao_Paulo — só para um INSTANTE real
  * (new Date() puro). Para converter de volta um "dia calendário" (o que

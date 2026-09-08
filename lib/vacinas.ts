@@ -71,25 +71,42 @@ export function classificarVacina(venceEm: Date, hoje: Date): SituacaoVacina {
   return "em_dia";
 }
 
+export type AlertaVacina = { tipo: string; dias: number };
+
+/**
+ * A direção visual pede o texto exato "Vacina vence em N dias · V10" (e o
+ * equivalente pra vencida) — por isso devolve tipo+dias da vacina mais
+ * urgente de cada categoria, não só um booleano. Mesma query de sempre,
+ * `orderBy venceEm asc` já entrega a mais vencida (data mais antiga) e a
+ * mais próxima de vencer (data futura mais próxima) na ordem certa pra
+ * pegar "a primeira que achar" em cada grupo.
+ */
 export async function situacaoVacinasDoPet(
   tenantId: string,
   petId: string,
-): Promise<{ vencida: boolean; proximaDoVencimento: boolean }> {
+): Promise<{ vencida: AlertaVacina | null; proximaDoVencimento: AlertaVacina | null }> {
   const hoje = hojeNoBrasil();
   const limiteAlerta = new Date(hoje);
   limiteAlerta.setUTCDate(limiteAlerta.getUTCDate() + DIAS_ALERTA_VENCIMENTO);
+  const umDiaMs = 1000 * 60 * 60 * 24;
 
   const vacinas = await prisma.vacina.findMany({
     where: comTenant(tenantId, { petId, venceEm: { lte: limiteAlerta } }),
-    select: { venceEm: true },
+    select: { tipo: true, venceEm: true },
+    orderBy: { venceEm: "asc" },
   });
 
-  let vencida = false;
-  let proximaDoVencimento = false;
+  let vencida: AlertaVacina | null = null;
+  let proximaDoVencimento: AlertaVacina | null = null;
   for (const vacina of vacinas) {
     const situacao = classificarVacina(vacina.venceEm, hoje);
-    if (situacao === "vencida") vencida = true;
-    if (situacao === "proxima") proximaDoVencimento = true;
+    const dias = Math.abs(Math.round((vacina.venceEm.getTime() - hoje.getTime()) / umDiaMs));
+    if (situacao === "vencida" && !vencida) {
+      vencida = { tipo: vacina.tipo, dias };
+    }
+    if (situacao === "proxima" && !proximaDoVencimento) {
+      proximaDoVencimento = { tipo: vacina.tipo, dias };
+    }
   }
 
   return { vencida, proximaDoVencimento };

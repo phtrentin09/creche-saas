@@ -4,25 +4,20 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/**
+ * Direção visual (handoff "Creche - Direcao Visual"): paleta, tipografia
+ * e raios abaixo são finais — recriados pixel-a-pixel a partir do
+ * protótipo, não uma interpretação livre. Sem tema escuro de propósito:
+ * o produto é usado em pé, na porta da creche, em luz forte — um `.dark`
+ * herdado por inversão ficaria com contraste errado, então não existe
+ * até alguém fazer essa passada com cuidado.
+ */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-heading);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -46,75 +41,72 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* marca — fora da faixa vermelho/âmbar/verde, nunca usar pra alerta */
+  --color-brand-900: #0a2e31;
+  --color-brand-700: #0f4c50;
+  --color-brand-600: #12595e;
+  --color-brand-300: #7fc4c0;
+  --color-brand-50: #e4eeee;
+  --color-brand-fill-dark: #164246; /* botões sobre brand-900 */
+  --color-brand-track: #0a3b3e; /* trilha sobre brand-700 */
+  --color-on-dark-muted: #9fbdbe;
+  --color-on-primary-muted: #a9c8c9;
+
+  /* semânticas — reservadas, nunca usar como cor de marca */
+  --color-danger: #b3261e;
+  --color-danger-bg: #fdecea;
+  --color-danger-row: #fef7f6;
+  --color-danger-border: #f0c9c4;
+  --color-danger-ink: #8e1d17;
+
+  --color-warning: #b26a00;
+  --color-warning-bg: #fef4e6;
+  --color-warning-border: #f2dcb6;
+  --color-warning-ink: #7a4a00;
+
+  --color-success: #0b6b3a;
+  --color-success-bg: #e7f4ed;
+  --color-success-border: #bfe0ce;
+  --color-success-ink: #095a31;
+
+  /* neutros de apoio */
+  --color-ink-2: #3e4b4d;
+  --color-line-soft: #ebefef;
+  --color-surface-2: #fafbfb;
+  --color-chip-bg: #e4e8e8;
+  --color-chip-border: #d2d9d9;
+  --color-chip-dark: #5a6a6c;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+  --background: #f4f6f6;
+  --foreground: #101b1d;
+  --card: #ffffff;
+  --card-foreground: #101b1d;
+  --popover: #ffffff;
+  --popover-foreground: #101b1d;
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --primary: #0f4c50;
+  --primary-foreground: #ffffff;
+  --secondary: #e4eeee;
+  --secondary-foreground: #0a2e31;
+
+  --muted: #f4f6f6;
+  --muted-foreground: #5a6a6c;
+  --accent: #e4eeee;
+  --accent-foreground: #0a2e31;
+
+  --destructive: #b3261e;
+  --border: #dee4e4;
+  --input: #dee4e4;
+  --ring: #0f4c50;
+
+  --radius: 0.5rem;
+
+  --font-sans: var(--font-ibm-plex-sans);
+  --font-heading: var(--font-archivo);
+  --font-mono: var(--font-ibm-plex-mono);
 }
 
 @layer base {

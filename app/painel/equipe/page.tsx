@@ -8,7 +8,7 @@ export default async function PaginaEquipe() {
   const equipe = await listarEquipe(tenantId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <h1 className="text-lg font-semibold">Equipe</h1>
 
       <ul className="space-y-3">

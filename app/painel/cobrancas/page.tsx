@@ -53,7 +53,7 @@ export default async function PaginaCobrancas() {
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       <h1 className="text-lg font-semibold">Cobranças</h1>
 
       <div className="grid grid-cols-2 gap-3">
